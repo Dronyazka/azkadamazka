@@ -25,8 +25,6 @@
 }
 
   </style>
-  <!-- Load Pyodide first so loadPyodide is available to the inline script below -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 </head>
 <body>
   <h2>Gamma / Hadamard / Luschny calculator (Pyodide)</h2>
@@ -37,7 +35,7 @@
       <button id="toggle" class="toggle">+1</button>
     </div>
   </div>
-  <div id="status" class="small">Loading Pyodide...</div>  <div class="box">
+  <div id="status" class="small">Initializing…</div>  <div class="box">
     <div id="labelGamma" class="label">Euler gamma function:</div>
     <div id="outGamma" class="out">—</div>
   </div>  <div class="box">
@@ -47,9 +45,12 @@
     <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
     <div id="outLus" class="out">—</div>
   </div>  <script>
-    // This page uses Pyodide and mpmath. It loads pyodide from jsdelivr and installs mpmath via micropip.
+    // Robust Pyodide loader with fallback and clearer ready signalling.
+    // This script dynamically loads the pyodide.js script and then calls loadPyodide().
+
     let pyodide = null;
-    let shiftOn = false; // false = unpressed (+1 shown), true = pressed (−1 shown)
+    let pyodideReady = null; // promise that resolves when pyodide is ready
+    let shiftOn = false;
 
     const statusEl = document.getElementById('status');
     const inputEl  = document.getElementById('input');
@@ -64,28 +65,11 @@
     const labelHad = document.getElementById('labelHad');
     const labelLus = document.getElementById('labelLus');
 
-    // Disable compute until Pyodide is ready
     computeBtn.disabled = true;
-
-    async function initPyodide() {
-      try {
-        statusEl.textContent = 'Loading Pyodide (this may take a few seconds)...';
-        pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
-        statusEl.textContent = 'Pyodide loaded — installing mpmath...';
-        await pyodide.loadPackage('micropip');
-        await pyodide.runPythonAsync("import micropip
-await micropip.install('mpmath')");
-        statusEl.textContent = 'Ready.';
-        computeBtn.disabled = false;
-      } catch (err) {
-        statusEl.textContent = 'Error loading Pyodide: ' + err;
-        console.error(err);
-      }
-    }
 
     function updateLabels() {
       if (shiftOn) {
-        toggleBtn.textContent = '−' + '1'; // unicode minus sign
+        toggleBtn.textContent = '−' + '1';
         labelGamma.textContent = 'Euler gamma function (argument shifted by +1):';
         labelHad.textContent = 'Hadamard gamma function (argument shifted by +1):';
         labelLus.textContent = 'Luschny factorial:';
@@ -100,17 +84,90 @@ await micropip.install('mpmath')");
     toggleBtn.addEventListener('click', () => {
       shiftOn = !shiftOn;
       updateLabels();
-      // recompute when toggled
+      // attempt a compute; this will await pyodide if necessary
       compute();
     });
 
     computeBtn.addEventListener('click', compute);
 
-    async function compute() {
-      if (!pyodide) {
-        statusEl.textContent = 'Pyodide is not ready yet.';
+    // Attempt to load pyodide script from a list of CDNs, sequentially, with per-source timeout.
+    function loadScriptWithTimeout(src, timeout = 20000) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(script);
+        // timeout
+        const t = setTimeout(() => {
+          script.onload = null;
+          script.onerror = null;
+          reject(new Error('Timed out loading ' + src));
+        }, timeout);
+      });
+    }
+
+    async function initPyodide() {
+      const cdns = [
+        'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js',
+        'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js' // same for now; you can add another CDN mirror if available
+      ];
+
+      statusEl.textContent = 'Loading Pyodide script...';
+
+      let scriptLoaded = false;
+      let lastErr = null;
+      for (const src of cdns) {
+        try {
+          await loadScriptWithTimeout(src, 25000);
+          scriptLoaded = true;
+          break;
+        } catch (err) {
+          console.warn('Script load failed for', src, err);
+          lastErr = err;
+        }
+      }
+
+      if (!scriptLoaded) {
+        statusEl.textContent = 'Failed to load Pyodide script: ' + (lastErr && lastErr.message);
+        computeBtn.disabled = true;
         return;
       }
+
+      statusEl.textContent = 'Initializing Pyodide runtime...';
+
+      try {
+        // indexURL should point to the directory that contains the wasm and packages
+        pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
+        await pyodide.loadPackage('micropip');
+        statusEl.textContent = 'Installing mpmath (micropip)...';
+        await pyodide.runPythonAsync("import micropip
+await micropip.install('mpmath')");
+        statusEl.textContent = 'Pyodide ready.';
+        computeBtn.disabled = false;
+      } catch (err) {
+        console.error('Pyodide init failed', err);
+        statusEl.textContent = 'Pyodide initialization failed: ' + err;
+        computeBtn.disabled = true;
+      }
+    }
+
+    // Start initialization immediately and expose a promise.
+    pyodideReady = initPyodide();
+
+    async function compute() {
+      // Wait for pyodideReady to settle, but don't throw if it failed.
+      try {
+        await pyodideReady;
+      } catch (e) {
+        // initialization failed earlier
+      }
+
+      if (!pyodide) {
+        statusEl.textContent = 'Pyodide is not available in this environment.';
+        return;
+      }
+
       const xStr = inputEl.value.trim();
       if (xStr === '') {
         statusEl.textContent = 'Enter a numeric input first.';
@@ -119,13 +176,13 @@ await micropip.install('mpmath')");
         outLus.textContent = '—';
         return;
       }
+
       outGamma.textContent = 'computing...';
       outHad.textContent = 'computing...';
       outLus.textContent = 'computing...';
 
-      try {
-        // Python snippet. Internal precision: 250 decimal places. Output significand: 15 significant digits.
-        const pyCode = `
+      // Use a python snippet similar to before, with high precision and formatted output.
+      const pyCode = `
 from mpmath import mp, mpf, gamma, digamma, sin, pi, nstr
 mp.mp.dps = 250
 x = mpf(${JSON.stringify(xStr)})
@@ -151,25 +208,15 @@ def safe_gamma(a):
         return None
 
 if s:
-    # shifted-by-+1 mode
     gamma_val = safe_gamma(x + 1)
-    if gamma_val is None:
-        gamma_out = '∞̃'
-    else:
-        gamma_out = fmt(gamma_val)
-
-    # Hadamard: (digamma(1 - (x+1)/2) - digamma((1 - (x+1))/2))/(2 * gamma(1 - (x+1)))
+    gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
     den = safe_gamma(1 - (x + 1))
     try:
-        if den is None:
-            had_out = '∞̃'
-        else:
-            had = (digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)) / (2 * den)
-            had_out = fmt(had)
+        had = (digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
+        had_out = '∞̃' if had is None else fmt(had)
     except Exception:
         had_out = '∞̃'
-
-    # Luschny factorial (not shifted): Gamma(x+1) * (1 - sin(pi*x)/(pi*x)) * (x/2*(digamma((x+1)/2) - digamma(x/2)) - 1/2)
+    # Luschny
     if x == 0:
         lus_out = fmt(mpf('1'))
     else:
@@ -182,25 +229,15 @@ if s:
         except Exception:
             lus_out = '∞̃'
 else:
-    # unshifted mode
     gamma_val = safe_gamma(x)
-    if gamma_val is None:
-        gamma_out = '∞̃'
-    else:
-        gamma_out = fmt(gamma_val)
-
+    gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
     den = safe_gamma(1 - x)
     try:
-        if den is None:
-            had_out = '∞̃'
-        else:
-            had = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * den)
-            had_out = fmt(had)
+        had = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * den) if den is not None else None
+        had_out = '∞̃' if had is None else fmt(had)
     except Exception:
         had_out = '∞̃'
-
     y = x - 1
-    # Luschny factorial (argument shifted by -1)
     if y == 0:
         lus_out = fmt(mpf('1'))
     else:
@@ -217,6 +254,7 @@ result = {'gamma': gamma_out, 'hadamard': had_out, 'luschny': lus_out}
 result
 `;
 
+      try {
         const pyResult = await pyodide.runPythonAsync(pyCode);
         const jsResult = pyResult.toJs ? pyResult.toJs() : pyResult;
 
@@ -224,19 +262,23 @@ result
         outHad.textContent = jsResult.hadamard;
         outLus.textContent = jsResult.luschny;
         statusEl.textContent = 'Computed.';
+
+        // If the pyResult is a proxy, destroy it to avoid memory leaks
+        try { pyResult.destroy && pyResult.destroy(); } catch (e) {}
       } catch (err) {
-        console.error(err);
-        outGamma.textContent = 'Error: ' + err;
-        outHad.textContent = 'Error: ' + err;
-        outLus.textContent = 'Error: ' + err;
-        statusEl.textContent = 'Computation failed. See console for details.';
+        console.error('Computation error:', err);
+        statusEl.textContent = 'Computation failed: ' + err;
+        outGamma.textContent = 'Error';
+        outHad.textContent = 'Error';
+        outLus.textContent = 'Error';
       }
     }
 
-    // Initialize on load
-    (async () => {
-      await initPyodide();
+    // Kick off initialization but allow page to finish parsing first
+    window.addEventListener('load', () => {
+      // small delay to let network queues settle in constrained environments
+      setTimeout(() => { pyodideReady; }, 0);
       updateLabels();
-    })();
+    });
   </script></body>
 </html>
