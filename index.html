@@ -2,161 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Gamma / Hadamard / Luschny (Pyodide)</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #0f172a;
-      color: #e6eef8;
-    }
-    .wrap {
-      min-height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      box-sizing: border-box;
-    }
-    .card {
-      background: #0b1220;
-      padding: 28px;
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
-      width: 820px;
-      max-width: 100%;
-    }
-    .controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    input[type=text] {
-      flex: 1;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.02);
-      color: inherit;
-      font-size: 16px;
-      outline: none;
-    }
-    input[type=text]:focus {
-      border-color: #3b82f6;
-    }
-    .btn {
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background 0.1s;
-    }
-    .btn:hover {
-      background: #1d4ed8;
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-    .toggle {
-      min-width: 70px;
-    }
-    .box {
-      margin-top: 20px;
-      padding: 16px;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .label {
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #b0c4de;
-    }
-    .out {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: #1e293b;
-      padding: 12px 14px;
-      border-radius: 6px;
-      border-left: 3px solid #3b82f6;
-    }
-    .small {
-      font-size: 13px;
-      color: #94a3b8;
-      margin-top: 16px;
-      text-align: right;
-    }
-    .error-box {
-      background: #2d1a1a;
-      border-left: 3px solid #ef4444;
-      color: #fecaca;
-      padding: 12px;
-      border-radius: 6px;
-      font-family: monospace;
-      white-space: pre-wrap;
-      margin-top: 16px;
-      display: none;
-    }
-    @media (max-width: 600px) {
-      .controls {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .controls .row-btns {
-        display: flex;
-        gap: 8px;
-      }
-      .controls .row-btns button {
-        flex: 1;
-      }
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8;padding:24px}
+    .card{background:#0b1220;padding:20px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.6);width:820px;max-width:100%}
+    .controls{display:flex;gap:8px;align-items:center}
+    input[type=text]{flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:inherit;font-size:16px}
+    .btn{padding:10px 14px;border-radius:8px;border:none;background:#2563eb;color:white;font-weight:600;cursor:pointer}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .toggle{min-width:64px}
+    .box{margin-top:12px;padding:12px;border-radius:8px;background:rgba(255,255,255,.02)}
+    .label{font-weight:700;margin-bottom:6px}
+    .out{font-family:monospace;white-space:pre-wrap}
+    .small{font-size:13px;color:rgba(230,238,248,.7);margin-top:8px}
+    .error{color:#ffb4b4}
+    pre#errorBox{background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px}
+    @media (max-width:600px){
+      .controls{flex-direction:column;align-items:stretch}
+      .row-btns{display:flex;gap:8px}
+      .row-btns button{flex:1}
     }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <div class="controls">
-      <input type="text" id="xinput" placeholder="e.g. 2.5, -1, 1+2j" aria-label="Argument x" />
-      <div class="row-btns">
-        <button id="compute" class="btn">Compute</button>
-        <button id="toggle" class="btn toggle">+1</button>
+  <div class="wrap">
+    <div class="card">
+      <div class="controls">
+        <input id="xinput" type="text" placeholder="" aria-label="x value" />
+        <div class="row-btns" style="display:flex;gap:8px">
+          <button id="compute" class="btn">Compute</button>
+          <button id="toggle" class="btn toggle">+1</button>
+        </div>
       </div>
-    </div>
 
-    <div class="box">
-      <div id="labelGamma" class="label">Euler gamma function:</div>
-      <div id="outGamma" class="out">—</div>
-    </div>
-    <div class="box">
-      <div id="labelHad" class="label">Hadamard gamma function:</div>
-      <div id="outHad" class="out">—</div>
-    </div>
-    <div class="box">
-      <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
-      <div id="outLus" class="out">—</div>
-    </div>
+      <div class="box">
+        <div id="labelGamma" class="label">Euler gamma function:</div>
+        <div id="outGamma" class="out">—</div>
+      </div>
 
-    <div id="status" class="small">⏳ loading Python ...</div>
-    <div id="errorBox" class="error-box"></div>
+      <div class="box">
+        <div id="labelHad" class="label">Hadamard gamma function:</div>
+        <div id="outHad" class="out">—</div>
+      </div>
+
+      <div class="box">
+        <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
+        <div id="outLus" class="out">—</div>
+      </div>
+
+      <div id="status" class="small">Loading...</div>
+      <pre id="errorBox"></pre>
+    </div>
   </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-<script>
-  (function() {
+  <!-- Pyodide -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <script>
     const computeBtn = document.getElementById('compute');
-    const toggleBtn = document.getElementById('toggle');
     const xinput = document.getElementById('xinput');
-    const statusDiv = document.getElementById('status');
-    const errorBox = document.getElementById('errorBox');
+    const status = document.getElementById('status');
 
     const outGamma = document.getElementById('outGamma');
     const outHad = document.getElementById('outHad');
@@ -166,21 +72,24 @@
     const labelHad = document.getElementById('labelHad');
     const labelLus = document.getElementById('labelLus');
 
-    let pyodideReady = false;
-    let shiftOn = false;       // false = unshifted (toggle shows "+1")
+    const toggleBtn = document.getElementById('toggle');
+    const errorBox = document.getElementById('errorBox');
 
-    function showError(msg) {
-      errorBox.textContent = msg;
+    let pyodideReady = false;
+    let shiftOn = false; // false => unshifted (toggle shows +1)
+
+    function showError(text){
+      errorBox.textContent = text;
       errorBox.style.display = 'block';
     }
-    function clearError() {
+    function clearError(){
       errorBox.textContent = '';
       errorBox.style.display = 'none';
     }
 
-    function updateUILabels() {
-      if (shiftOn) {
-        toggleBtn.textContent = '−1';
+    function updateLabels(){
+      if(shiftOn){
+        toggleBtn.textContent = '−' + '1';
         labelGamma.textContent = 'Euler gamma function (argument shifted by +1):';
         labelHad.textContent = 'Hadamard gamma function (argument shifted by +1):';
         labelLus.textContent = 'Luschny factorial:';
@@ -192,167 +101,349 @@
       }
     }
 
-    toggleBtn.addEventListener('click', () => {
+    toggleBtn.addEventListener('click', ()=>{
       shiftOn = !shiftOn;
-      updateUILabels();
-      if (pyodideReady && xinput.value.trim() !== '') {
-        compute();
-      }
+      updateLabels();
+      // recompute after toggle (only if python ready)
+      if(pyodideReady) compute();
     });
 
-    async function initPyodide() {
-      try {
+    async function initPyodide(){
+      try{
         computeBtn.disabled = true;
-        computeBtn.textContent = 'Loading …';
-        statusDiv.textContent = '📦 loading Pyodide ...';
-        window.pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
-
-        statusDiv.textContent = '📦 installing mpmath (high precision) ...';
+        computeBtn.textContent = 'Loading Python…';
+        status.textContent = 'Loading Pyodide...';
+        window.pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
+        status.textContent = 'Installing mpmath...';
         await pyodide.loadPackage('micropip');
-        const micropip = pyodide.pyimport('micropip');
-        await micropip.install('mpmath');
-
+        await pyodide.runPythonAsync(`import micropip
+await micropip.install('mpmath')`);
+        // Put the compute helper into the pyodide globals so we can call it repeatedly
+        await pyodide.runPythonAsync(pythonComputeModule);
         pyodideReady = true;
         computeBtn.disabled = false;
         computeBtn.textContent = 'Compute';
-        statusDiv.textContent = '✅ ready — enter a value';
-        clearError();
-      } catch (err) {
-        console.error('Pyodide init failed:', err);
-        statusDiv.textContent = '❌ failed to load Python environment';
-        showError(`Initialisation error:\n${err}\n\nPlease check your network or CDN.`);
+        status.textContent = 'Ready';
+      } catch(err){
+        console.error('Pyodide init error', err);
+        status.textContent = 'Failed to load Python or packages. See error details below.';
+        showError(String(err) + '\n\nHint: network or CDN may be blocked.');
         computeBtn.disabled = true;
         computeBtn.textContent = 'Error';
       }
     }
+
+    // The python helper module as a string. It sets mp.dps = 250 and exposes compute_values(x_str, shiftOn)
+    const pythonComputeModule = `
+from mpmath import mp, mpc, mpf, nstr, sin, pi, psi, gamma, isnan, isinf
+
+# internal precision (250 decimal places)
+mp.dps = 250
+
+# Format a real or complex mp number with 15 significant digits in decimal/scientific as appropriate.
+def fmt(z):
+    # z may be mp.mpf or mp.mpc
+    if isinf(z):
+        return '∞̃'
+    # treat extremely large magnitude as infinite for display purposes (pole)
+    try:
+        if abs(z) > mp.mpf('1e200'):
+            return '∞̃'
+    except Exception:
+        pass
+
+    # For complex numbers show a+bi style using 'i'
+    if isinstance(z, mpc):
+        re = mp.re(z)
+        im = mp.im(z)
+        if mp.sign(im) == 0:
+            return nstr(re, 15)
+        if mp.sign(re) == 0:
+            s = nstr(abs(im), 15)
+            sign = '-' if mp.sign(im) < 0 else ''
+            return f\"{sign}{s}i\"
+        re_s = nstr(re, 15)
+        im_s = nstr(abs(im), 15)
+        sign = ' + ' if mp.sign(im) >= 0 else ' - '
+        return f\"{re_s}{sign}{im_s}i\"
+    else:
+        return nstr(z, 15)
+
+# helper: check exact real integer status
+def is_exact_real_integer(z):
+    if isinstance(z, mpc):
+        return False
+    # z is mp.mpf
+    if mp.im(z) != 0:
+        return False
+    try:
+        r = mp.re(z)
+        # exact integer test: r == int(r)
+        if r == mp.mpf(int(r)):
+            return True
+    except Exception:
+        pass
+    return False
+
+# safely parse input string into mpc
+def parse_input(s):
+    s = s.strip()
+    if s == '':
+        raise ValueError('empty input')
+    # allow 'j' for imaginary unit; mpc accepts 'j' or 'i'?
+    # mpmath's mpc can parse '1+2j'
+    try:
+        val = mpc(s)
+        return val
+    except Exception as e:
+        # try replace 'i' with 'j' (users might type 'i')
+        try:
+            val = mpc(s.replace('i','j'))
+            return val
+        except Exception:
+            raise
+
+# Hadamard gamma as specified:
+# H(x) = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
+def hadamard_direct(x):
+    # compute directly
+    num = psi(1 - x/2) - psi((1 - x)/2)
+    den = 2 * gamma(1 - x)
+    return num / den
+
+# Luschny factorial L(x) = Gamma(x+1) * (1 - (sin(pi x)/(pi x)) * ( x/2*(psi((x+1)/2)-psi(x/2)) - 1/2 ))
+def luschny_L(x):
+    # be careful at x = 0 where sin(pi x)/(pi x) -> 1
+    # expression written exactly as requested
+    g = gamma(x + 1)
+    # safe computation of sin(pi x)/(pi x) for small x:
+    denom = pi * x
+    if denom == 0:
+        sinc = mp.mpf(1)  # limit
+    else:
+        sinc = sin(pi * x) / denom
+    inner = (x / 2) * (psi((x + 1) / 2) - psi(x / 2)) - mp.mpf('1/2')
+    return g * (1 - sinc * inner)
+
+# variant: Luschny factorial but with argument shifted by -1 in the sense requested:
+# In the "argument shifted by -1" panel the user provided formula uses (x-1) variable inside.
+# We'll implement exactly: y = x - 1
+def luschny_shift_minus1(x):
+    y = x - 1
+    # Gamma((x - 1) + 1) = Gamma(x)
+    g = gamma(y + 1)
+    denom = pi * y
+    if denom == 0:
+        sinc = mp.mpf(1)
+    else:
+        sinc = sin(pi * y) / denom
+    inner = (y / 2) * (psi((y + 1) / 2) - psi(y / 2)) - mp.mpf('1/2')
+    return g * (1 - sinc * inner)
+
+# To handle integer-limits: compute symmetric small-displacement limit
+def symmetric_limit(f, x, eps=None):
+    if eps is None:
+        # choose eps based on precision: not too tiny to avoid catastrophic cancellation
+        # with mp.dps = 250, eps = 10**(-40) is reasonable
+        eps = mp.power(10, -40)
+    return (f(x + eps) + f(x - eps)) / 2
+
+# Main exposed function: compute_values(x_str, shift)
+def compute_values(x_str, shift):
+    mp.dps = 250  # ensure high internal precision
+    try:
+        x = parse_input(x_str)
+    except Exception as e:
+        raise ValueError('Failed to parse input: ' + str(e))
+
+    # Determine if input is an exact real integer (for limit handling)
+    is_real_integer = False
+    int_value = None
+    if isinstance(x, mpc):
+        if mp.im(x) == 0:
+            # it's effectively real
+            x_real = mp.re(x)
+            if x_real == mp.mpf(int(x_real)):
+                is_real_integer = True
+                int_value = int(x_real)
+    else:
+        # mp.mpf
+        if mp.re(x) == mp.mpf(int(mp.re(x))):
+            is_real_integer = True
+            int_value = int(mp.re(x))
+
+    # Compute Euler Gamma depending on shift:
+    # Unshifted: Euler = Gamma(x)
+    # Shifted (+1): Euler = Gamma(x + 1)
+    try:
+        if shift:
+            # Gamma(x + 1)
+            gx = gamma(x + 1)
+            # pole detection: if gamma infinite or enormous treat as pole
+            if isinf(gx) or abs(gx) > mp.mpf('1e200'):
+                out_gamma = '∞̃'
+            else:
+                out_gamma = fmt(gx)
+        else:
+            gx = gamma(x)
+            if isinf(gx) or abs(gx) > mp.mpf('1e200'):
+                out_gamma = '∞̃'
+            else:
+                out_gamma = fmt(gx)
+    except Exception:
+        # If gamma raised because of pole or other numerical issue, mark as infinite
+        out_gamma = '∞̃'
+
+    # Compute Hadamard:
+    # Unshifted formula: (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
+    # Shifted formula: replace x by x+1 inside the expression as user required
+    try:
+        if shift:
+            # hadamard of x+1
+            X = x + 1
+            # If X is exact real integer >= 0, compute symmetric limit
+            is_int_for_limit = False
+            if isinstance(X, mpc):
+                if mp.im(X) == 0:
+                    xr = mp.re(X)
+                    if xr == mp.mpf(int(xr)) and int(xr) >= 0:
+                        is_int_for_limit = True
+            else:
+                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) >= 0:
+                    is_int_for_limit = True
+            if is_int_for_limit:
+                val_had = symmetric_limit(hadamard_direct, X)
+            else:
+                val_had = hadamard_direct(X)
+            if isinf(val_had) or abs(val_had) > mp.mpf('1e200'):
+                out_had = '∞̃'
+            else:
+                out_had = fmt(val_had)
+        else:
+            X = x
+            # For integers >= 0 we compute limit (as requested)
+            is_int_for_limit = False
+            if isinstance(X, mpc):
+                if mp.im(X) == 0:
+                    xr = mp.re(X)
+                    if xr == mp.mpf(int(xr)) and int(xr) >= 0:
+                        is_int_for_limit = True
+            else:
+                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) >= 0:
+                    is_int_for_limit = True
+            if is_int_for_limit:
+                val_had = symmetric_limit(hadamard_direct, X)
+            else:
+                val_had = hadamard_direct(X)
+            if isinf(val_had) or abs(val_had) > mp.mpf('1e200'):
+                out_had = '∞̃'
+            else:
+                out_had = fmt(val_had)
+    except Exception:
+        out_had = '∞̃'
+
+    # Compute Luschny factorial cases:
+    # Unshifted panel shows "Luschny factorial (argument shifted by −1)" -> uses luschny_shift_minus1(x)
+    # Shifted panel (toggle on) shows "Luschny factorial" -> uses luschny_L(x)
+    try:
+        if shift:
+            # L(x) = luschny_L(x)
+            X = x
+            # For integers <= 0 special-case requirement in user's text concerned the "argument shifted by -1" rather than this branch,
+            # but we'll still guard numerically: if X is exact integer <= 0 we can still evaluate symmetric limit if direct gives trouble.
+            need_limit = False
+            if isinstance(X, mpc):
+                if mp.im(X) == 0:
+                    xr = mp.re(X)
+                    if xr == mp.mpf(int(xr)) and int(xr) <= 0:
+                        need_limit = True
+            else:
+                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) <= 0:
+                    need_limit = True
+            if need_limit:
+                val_lus = symmetric_limit(luschny_L, X)
+            else:
+                val_lus = luschny_L(X)
+            if isinf(val_lus) or abs(val_lus) > mp.mpf('1e200'):
+                out_lus = '∞̃'
+            else:
+                out_lus = fmt(val_lus)
+        else:
+            # "argument shifted by -1" version
+            X = x
+            # For integers <= 0 the user requested the Luschny factorial (argument shifted by -1) must approach them via a limit
+            need_limit = False
+            if isinstance(X, mpc):
+                if mp.im(X) == 0:
+                    xr = mp.re(X)
+                    if xr == mp.mpf(int(xr)) and int(xr) <= 0:
+                        need_limit = True
+            else:
+                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) <= 0:
+                    need_limit = True
+            if need_limit:
+                val_lus = symmetric_limit(luschny_shift_minus1, X)
+            else:
+                val_lus = luschny_shift_minus1(X)
+            if isinf(val_lus) or abs(val_lus) > mp.mpf('1e200'):
+                out_lus = '∞̃'
+            else:
+                out_lus = fmt(val_lus)
+    except Exception:
+        out_lus = '∞̃'
+
+    return out_gamma, out_had, out_lus
+`;
+
     initPyodide();
 
     computeBtn.addEventListener('click', compute);
-    xinput.addEventListener('keydown', (e) => { if (e.key === 'Enter') compute(); });
+    xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
 
-    async function compute() {
+    async function compute(){
       clearError();
-      if (!pyodideReady) {
-        statusDiv.textContent = '⏳ Python not ready, please wait.';
+      if(!pyodideReady){
+        status.textContent = 'Python not ready';
         return;
       }
-
       const raw = xinput.value.trim();
-      if (raw === '') {
+      if(raw === ''){
+        status.textContent = 'Enter a numeric input first.';
         outGamma.textContent = '—';
         outHad.textContent = '—';
         outLus.textContent = '—';
-        statusDiv.textContent = '✏️ enter a number (real or complex)';
         return;
       }
 
       computeBtn.disabled = true;
       computeBtn.textContent = 'Computing…';
-      statusDiv.textContent = '⚙️ computing ...';
+      status.textContent = 'Computing...';
 
       try {
-        pyodide.globals.set('x_str', raw);
-        const shiftInt = shiftOn ? 1 : 0;
-
-        // Python code with per‑function exception handling and 250‑digit precision
-        const code = `
-from mpmath import mp, gamma, psi, sin, pi, nstr, inf, isinf, isnan, mpc, mpmathify
-
-mp.dps = 250
-
-def format_value(z):
-    """return a string with 15 significant digits; poles → ∞̃"""
-    if isinf(z) or isnan(z):
-        return "∞̃"
-    if isinstance(z, mpc):
-        re = mp.re(z)
-        im = mp.im(z)
-        if im == 0:
-            return nstr(re, 15)
-        re_str = nstr(re, 15)
-        im_str = nstr(abs(im), 15)
-        sign = '+' if im >= 0 else '-'
-        return f"{re_str} {sign} {im_str}j"
-    else:
-        return nstr(z, 15)
-
-# Parse input
-try:
-    x = mpmathify(x_str)
-except Exception:
-    euler = had = lus = "❌ invalid input"
-else:
-    # Helper for safe computation of each function
-    def safe_gamma():
-        try:
-            val = gamma(x) if shift == 0 else gamma(x + 1)
-            return format_value(val)
-        except Exception:
-            return "∞̃"
-
-    def safe_hadamard():
-        try:
-            if shift == 0:
-                # Hadamard unshifted
-                val = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
-            else:
-                # Hadamard shifted (x+1)
-                val = (psi(1 - (x+1)/2) - psi((1 - (x+1))/2)) / (2 * gamma(1 - (x+1)))
-            return format_value(val)
-        except Exception:
-            return "∞̃"
-
-    def safe_luschny():
-        try:
-            if shift == 0:
-                # Luschny factorial (shift -1 already in formula)
-                term_sin = 1 - sin(pi*(x-1)) / (pi*(x-1))
-                term_digamma = ((x-1)/2) * (psi(x/2) - psi((x-1)/2)) - 0.5
-                val = gamma(x) * term_sin * term_digamma
-            else:
-                # Luschny shifted (x+1)
-                term_sin = 1 - sin(pi*x) / (pi*x)
-                term_digamma = (x/2) * (psi((x+1)/2) - psi(x/2)) - 0.5
-                val = gamma(x + 1) * term_sin * term_digamma
-            return format_value(val)
-        except Exception:
-            return "∞̃"
-
-    euler = safe_gamma()
-    had = safe_hadamard()
-    lus = safe_luschny()
-
-(euler, had, lus)
-        `;
-
-        // Inject shift value into the code (replace the literal 'shift == 0' condition)
-        const fullCode = code.replace('if shift == 0', `if shift == ${shiftInt}`)
-                             .replace('else:', `else:`);  // else stays as is
-
-        const result = await pyodide.runPythonAsync(fullCode);
-        const [gammaStr, hadStr, lusStr] = result.toJs();
-
-        outGamma.textContent = gammaStr;
-        outHad.textContent = hadStr;
-        outLus.textContent = lusStr;
-
-        statusDiv.textContent = '✅ done';
+        // pass input and shift flag to the Python compute_values function we loaded into pyodide
+        pyodide.globals.set('x_in', raw);
+        pyodide.globals.set('shift_flag', shiftOn ? 1 : 0);
+        const res = await pyodide.runPythonAsync(`
+# call compute_values exposed earlier
+shift = True if int(shift_flag) == 1 else False
+compute_values(x_in, shift)
+`);
+        // res should be a Python tuple of three strings
+        const [g, h, l] = res;
+        outGamma.textContent = g;
+        outHad.textContent = h;
+        outLus.textContent = l;
+        status.textContent = 'Done';
       } catch (err) {
         console.error(err);
-        outGamma.textContent = '—';
-        outHad.textContent = '—';
-        outLus.textContent = '—';
-        statusDiv.textContent = '❌ computation error';
-        showError(`Python error:\n${err.message || err}`);
+        status.textContent = 'Error during computation';
+        showError(String(err));
       } finally {
         computeBtn.disabled = false;
         computeBtn.textContent = 'Compute';
-        try { pyodide.globals.delete('x_str'); } catch(e) {}
+        try { pyodide.globals.del('x_in'); pyodide.globals.del('shift_flag'); } catch(e){}
       }
     }
-
-    updateUILabels();
-  })();
-</script>
+  </script>
 </body>
 </html>
