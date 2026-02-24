@@ -1,23 +1,181 @@
-<!DOCTYPE html>
-<html>
-  <head>
+<!doctype html>
 
-    <!-- Thumbnail image/gif -->
-    <meta property="og:image" content="https://raw.githubusercontent.com/dronyazka/azkadamazka/main/media/funnythumbnail.gif">
-    <meta property="og:type" content="video.other">
-    
-    <!-- Video Link -->
-    <meta property="og:video:url" content="https://raw.githubusercontent.com/dronyazka/azkadamazka/main/media/rickroll.mp4">
-    <!-- If you want a seamless transition between your thumbnail size and video size, adjust these values to match your thumbnail resolution. -->
-    <!-- However, it will be all wonky if your thumbnail is vertical and your video is horizontal. This works best with similar aspect ratios -->
-    <meta property="og:video:height" content="502">
-    <meta property="og:video:width" content="550">
-    
-    <!-- Stole the memes from https://github.com/iwakkrg/iwakkrg.github.io -->
-    
-    <!-- Redirect -->
-    <meta http-equiv="refresh" content="0; url=https://discord.gift/QCZnbtEKy4JHSpmpfnWx2Z4f" />
-  </head>
-  <body>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pyodide: Gamma / Hadamard / Luschny demo</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 24px; max-width: 900px; margin: auto; color: #111 }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px }
+    input[type="text"] { flex: 1; padding: 8px 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc }
+    button { padding: 8px 12px; border-radius: 8px; border: 1px solid #888; background: #f5f5f5; cursor: pointer }
+    button.toggle { width: 56px; text-align: center }
+    .box { background: #fafafa; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px }
+    .label { font-weight: 600; margin-bottom: 6px }
+    .out { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Noto Mono", monospace; white-space: pre-wrap; }
+    #status { font-size: 13px; color: #666 }
+    .small { font-size: 13px; color: #666 }
+  </style>
+</head>
+<body>
+  <h2>Gamma / Hadamard / Luschny calculator (Pyodide)</h2>
+  <div class="row">
+    <input id="input" type="text" value="3.5" aria-label="input value">
+    <button id="compute">Compute</button>
+    <button id="toggle" class="toggle">+1</button>
+  </div>
+  <div id="status" class="small">Loading Pyodide...</div>  <div class="box">
+    <div id="labelGamma" class="label">Euler gamma function:</div>
+    <div id="outGamma" class="out">—</div>
+  </div>  <div class="box">
+    <div id="labelHad" class="label">Hadamard gamma function:</div>
+    <div id="outHad" class="out">—</div>
+  </div>  <div class="box">
+    <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
+    <div id="outLus" class="out">—</div>
+  </div>  <script>
+    // This page uses Pyodide and mpmath. It loads pyodide from jsdelivr and installs mpmath via micropip.
+    let pyodide = null;
+    let shiftOn = false; // false = unpressed (shows +1 button), true = pressed (shows −1)
+
+    const statusEl = document.getElementById('status');
+    const inputEl  = document.getElementById('input');
+    const computeBtn = document.getElementById('compute');
+    const toggleBtn = document.getElementById('toggle');
+
+    const outGamma = document.getElementById('outGamma');
+    const outHad = document.getElementById('outHad');
+    const outLus = document.getElementById('outLus');
+
+    const labelGamma = document.getElementById('labelGamma');
+    const labelHad = document.getElementById('labelHad');
+    const labelLus = document.getElementById('labelLus');
+
+    async function initPyodide() {
+      try {
+        statusEl.textContent = 'Loading Pyodide (this may take a few seconds)...';
+        // indexURL chosen to match Pyodide release files on jsDelivr. You can change version if desired.
+        pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
+        statusEl.textContent = 'Pyodide loaded — installing mpmath...';
+        await pyodide.loadPackage('micropip');
+        // install mpmath via micropip
+        await pyodide.runPythonAsync("import micropip\nawait micropip.install('mpmath')");
+        statusEl.textContent = 'Ready.';
+      } catch (err) {
+        statusEl.textContent = 'Error loading Pyodide: ' + err;
+        console.error(err);
+      }
+    }
+
+    function updateLabels() {
+      if (shiftOn) {
+        toggleBtn.textContent = '\u2212' + '1'; // unicode minus sign
+        labelGamma.textContent = 'Euler gamma function (argument shifted by +1):';
+        labelHad.textContent = 'Hadamard gamma function (argument shifted by +1):';
+        labelLus.textContent = 'Luschny factorial:';
+      } else {
+        toggleBtn.textContent = '+1';
+        labelGamma.textContent = 'Euler gamma function:';
+        labelHad.textContent = 'Hadamard gamma function:';
+        labelLus.textContent = 'Luschny factorial (argument shifted by −1):';
+      }
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      shiftOn = !shiftOn;
+      updateLabels();
+      // optionally recompute automatically
+      compute();
+    });
+
+    computeBtn.addEventListener('click', compute);
+
+    async function compute() {
+      if (!pyodide) {
+        statusEl.textContent = 'Pyodide is not ready yet.';
+        return;
+      }
+      const xStr = inputEl.value.trim();
+      if (xStr === '') {
+        statusEl.textContent = 'Enter a numeric input first.';
+        return;
+      }
+      outGamma.textContent = 'computing...';
+      outHad.textContent = 'computing...';
+      outLus.textContent = 'computing...';
+
+      try {
+        // Build a short Python snippet that computes the three quantities using mpmath.
+        // We return a dict of strings (nstr to control digits) which will be converted back to JS.
+
+        const pyCode = `
+from mpmath import mp, mpf, gamma, digamma, sin, pi, nstr
+mp.mp.dps = 80
+x = mpf(${JSON.stringify(xStr)})
+s = ${shiftOn ? '1' : '0'}
+
+# helper for safe string formatting
+def s(x):
+    try:
+        return nstr(x, 50)
+    except Exception:
+        return str(x)
+
+if s:
+    # shifted-by-+1 mode
+    gamma_val = gamma(x + 1)
+    # Hadamard: (digamma(1 - (x+1)/2) - digamma((1 - (x+1))/2))/(2 * gamma(1 - (x+1)))
+    had_num = digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)
+    had_den = 2 * gamma(1 - (x + 1))
+    had = had_num / had_den
+    # Luschny factorial (not shifted): Gamma(x+1) * (1 - sin(pi*x)/(pi*x)) * (x/2*(digamma((x+1)/2) - digamma(x/2)) - 1/2)
+    # careful with x==0
+    if x == 0:
+        lus = mp.mpf('1')
+    else:
+        lus = gamma_val * (1 - sin(pi * x) / (pi * x)) * (x/2 * (digamma((x + 1)/2) - digamma(x/2)) - mp.mpf('1')/2)
+else:
+    # unshifted mode (argument shifted by -1 for Luschny)
+    gamma_val = gamma(x)
+    had_num = digamma(1 - x/2) - digamma((1 - x)/2)
+    had_den = 2 * gamma(1 - x)
+    had = had_num / had_den
+    y = x - 1
+    # Luschny factorial (argument shifted by -1): Gamma((x-1)+1) * (1 - sin(pi*(x-1))/(pi*(x-1))) * (((x-1)/2)*(digamma(((x-1)+1)/2) - digamma((x-1)/2)) - 1/2)
+    # simplify: Gamma(x) * (1 - sin(pi*y)/(pi*y)) * (y/2*(digamma((y+1)/2) - digamma(y/2)) - 1/2)
+    if y == 0:
+        lus = mp.mpf('1')
+    else:
+        lus = gamma_val * (1 - sin(pi * y) / (pi * y)) * (y/2 * (digamma((y + 1)/2) - digamma(y/2)) - mp.mpf('1')/2)
+
+result = {'gamma': s(gamma_val), 'hadamard': s(had), 'luschny': s(lus)}
+result
+`;
+
+        const pyResult = await pyodide.runPythonAsync(pyCode);
+        // pyResult is a PyProxy mapping
+        const jsResult = pyResult.toJs ? pyResult.toJs() : pyResult;
+
+        outGamma.textContent = jsResult.gamma;
+        outHad.textContent = jsResult.hadamard;
+        outLus.textContent = jsResult.luschny;
+        statusEl.textContent = 'Computed.';
+      } catch (err) {
+        console.error(err);
+        outGamma.textContent = 'Error: ' + err;
+        outHad.textContent = 'Error: ' + err;
+        outLus.textContent = 'Error: ' + err;
+        statusEl.textContent = 'Computation failed. See console for details.';
+      }
+    }
+
+    // Initialize on load
+    (async () => {
+      await initPyodide();
+      updateLabels();
+      // optional: compute default value once ready
+      compute();
+    })();
+  </script>  <!-- Pyodide loader -->  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script></body>
 </html>
