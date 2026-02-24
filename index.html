@@ -138,74 +138,79 @@ await micropip.install('mpmath')`);
       status.textContent = 'Computing...';
 
       const code = `
-from mpmath import mp, mpf, gamma, digamma, sin, pi, nstr
+from mpmath import mp, mpf, sin, pi, nstr, gamma as mpm_gamma, digamma as mpm_digamma
 mp.mp.dps = 250
-x = mpf(${JSON.stringify(raw)})
-s = ${shiftOn ? 'True' : 'False'}
-
-# format 15 significant digits
-def fmt(v):
-    try:
-        if not mp.isfinite(v):
-            return '∞̃'
-        return nstr(v, 15)
-    except Exception:
-        return '∞̃'
-
-# safe gamma: return None on pole or non-finite
-def safe_gamma(a):
-    try:
-        g = gamma(a)
-        if not mp.isfinite(g):
-            return None
-        return g
-    except Exception:
-        return None
-
-if s:
-    gamma_val = safe_gamma(x + 1)
-    gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
-    den = safe_gamma(1 - (x + 1))
-    try:
-        had = (digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
-        had_out = '∞̃' if had is None else fmt(had)
-    except Exception:
-        had_out = '∞̃'
-    # Luschny (unshifted formula when shiftOn true means Luschny without -1)
-    try:
-        if x == 0:
-            lus_out = fmt(mpf('1'))
-        else:
-            if gamma_val is None:
-                lus_out = '∞̃'
-            else:
-                lus = gamma_val * (1 - sin(pi * x) / (pi * x)) * (x/2 * (digamma((x + 1)/2) - digamma(x/2)) - mp.mpf('1')/2)
-                lus_out = fmt(lus)
-    except Exception:
-        lus_out = '∞̃'
+try:
+    x = mp.mpf(${JSON.stringify(raw)})
+except Exception as e:
+    result = {'error': 'Invalid input: ' + str(e)}
 else:
-    gamma_val = safe_gamma(x)
-    gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
-    den = safe_gamma(1 - x)
     try:
-        had = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * den) if den is not None else None
-        had_out = '∞̃' if had is None else fmt(had)
-    except Exception:
-        had_out = '∞̃'
-    y = x - 1
-    try:
-        if y == 0:
-            lus_out = fmt(mpf('1'))
-        else:
-            if gamma_val is None:
-                lus_out = '∞̃'
-            else:
-                lus = gamma_val * (1 - sin(pi * y) / (pi * y)) * (y/2 * (digamma((y + 1)/2) - digamma(y/2)) - mp.mpf('1')/2)
-                lus_out = fmt(lus)
-    except Exception:
-        lus_out = '∞̃'
+        s = ${shiftOn ? 'True' : 'False'}
 
-result = {'gamma': gamma_out, 'hadamard': had_out, 'luschny': lus_out}
+        def fmt(v):
+            try:
+                if not mp.isfinite(v):
+                    return '∞̃'
+                return nstr(v, 15)
+            except Exception:
+                return '∞̃'
+
+        def safe_gamma(a):
+            try:
+                g = mp.gamma(a)
+                if not mp.isfinite(g):
+                    return None
+                return g
+            except Exception:
+                return None
+
+        if s:
+            gamma_val = safe_gamma(x + 1)
+            gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
+            den = safe_gamma(1 - (x + 1))
+            try:
+                had = (mpm_digamma(1 - (x + 1)/2) - mpm_digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
+                had_out = '∞̃' if had is None else fmt(had)
+            except Exception:
+                had_out = '∞̃'
+            try:
+                if mp.almosteq(x, 0):
+                    lus_out = fmt(mp.mpf('1'))
+                else:
+                    if gamma_val is None:
+                        lus_out = '∞̃'
+                    else:
+                        lus = gamma_val * (1 - mp.sin(mp.pi * x) / (mp.pi * x)) * (x/2 * (mpm_digamma((x + 1)/2) - mpm_digamma(x/2)) - mp.mpf('1')/2)
+                        lus_out = fmt(lus)
+            except Exception:
+                lus_out = '∞̃'
+        else:
+            gamma_val = safe_gamma(x)
+            gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
+            den = safe_gamma(1 - x)
+            try:
+                had = (mpm_digamma(1 - x/2) - mpm_digamma((1 - x)/2)) / (2 * den) if den is not None else None
+                had_out = '∞̃' if had is None else fmt(had)
+            except Exception:
+                had_out = '∞̃'
+            y = x - 1
+            try:
+                if mp.almosteq(y, 0):
+                    lus_out = fmt(mp.mpf('1'))
+                else:
+                    if gamma_val is None:
+                        lus_out = '∞̃'
+                    else:
+                        lus = gamma_val * (1 - mp.sin(mp.pi * y) / (mp.pi * y)) * (y/2 * (mpm_digamma((y + 1)/2) - mpm_digamma(y/2)) - mp.mpf('1')/2)
+                        lus_out = fmt(lus)
+            except Exception:
+                lus_out = '∞̃'
+
+        result = {'gamma': gamma_out, 'hadamard': had_out, 'luschny': lus_out}
+    except Exception as e:
+        result = {'error': 'Computation error: ' + str(e)}
+
 result
 `;
 
@@ -213,10 +218,21 @@ result
         const pyResult = await pyodide.runPythonAsync(code);
         const jsResult = pyResult.toJs ? pyResult.toJs() : pyResult;
 
-        outGamma.textContent = jsResult.gamma;
-        outHad.textContent = jsResult.hadamard;
-        outLus.textContent = jsResult.luschny;
-        status.textContent = 'Done';
+        if(jsResult.error){
+          // show error clearly
+          outGamma.textContent = 'Error';
+          outHad.textContent = 'Error';
+          outLus.textContent = 'Error';
+          status.textContent = jsResult.error;
+          console.error('Python reported error:', jsResult.error);
+        } else {
+          outGamma.textContent = jsResult.gamma;
+          outHad.textContent = jsResult.hadamard;
+          outLus.textContent = jsResult.luschny;
+          status.textContent = 'Done';
+        }
+
+        try { pyResult.destroy && pyResult.destroy(); } catch(e){}
       } catch(err){
         console.error('Computation error', err);
         status.textContent = 'Error during computation (see console)';
