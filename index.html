@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gamma / Hadamard / Luschny (Pyodide)</title>
+  <title>Gamma / Hadamard / Luschny (Pyodide) — fixed</title>
   <style>
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8;padding:24px}
@@ -17,7 +17,6 @@
     .label{font-weight:700;margin-bottom:6px}
     .out{font-family:monospace;white-space:pre-wrap}
     .small{font-size:13px;color:rgba(230,238,248,.7);margin-top:8px}
-    .error{color:#ffb4b4}
     pre#errorBox{background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px}
     @media (max-width:600px){
       .controls{flex-direction:column;align-items:stretch}
@@ -30,7 +29,7 @@
   <div class="wrap">
     <div class="card">
       <div class="controls">
-        <input id="xinput" type="text" placeholder="" aria-label="x value" />
+        <input id="xinput" type="text" placeholder="Enter a number (real or complex, e.g. 3.5 or 1+2j)" aria-label="x value" />
         <div class="row-btns" style="display:flex;gap:8px">
           <button id="compute" class="btn">Compute</button>
           <button id="toggle" class="btn toggle">+1</button>
@@ -104,9 +103,148 @@
     toggleBtn.addEventListener('click', ()=>{
       shiftOn = !shiftOn;
       updateLabels();
-      // recompute after toggle (only if python ready)
       if(pyodideReady) compute();
     });
+
+    // Python helper module (fixed parsing + less-aggressive overflow test)
+    const pythonComputeModule = `
+from mpmath import mp, mpf, mpc, nstr, sin, pi, psi, gamma, mpf as mpf_constructor
+
+# high internal precision
+mp.dps = 250
+
+# Format function: 15 significant digits in output (per request)
+def fmt(z):
+    # treat mpmath infinities as "∞̃"
+    if mp.isinf(z):
+        return '∞̃'
+    # if magnitude extremely large, treat as infinite (use very large threshold)
+    try:
+        if abs(z) > mp.mpf('1e300'):
+            return '∞̃'
+    except Exception:
+        pass
+
+    # complex handling
+    if isinstance(z, mpc):
+        re = mp.re(z)
+        im = mp.im(z)
+        if mp.sign(im) == 0:
+            return nstr(re, 15)
+        if mp.sign(re) == 0:
+            sign = '-' if mp.sign(im) < 0 else ''
+            return f\"{sign}{nstr(abs(im), 15)}i\"
+        sign = ' + ' if mp.sign(im) >= 0 else ' - '
+        return f\"{nstr(re,15)}{sign}{nstr(abs(im),15)}i\"
+    else:
+        return nstr(z, 15)
+
+# Safer parse: try plain real first (so plain real strings become mpf), fallback to complex
+def parse_input(s):
+    s = s.strip()
+    if s == '':
+        raise ValueError('empty input')
+    # try real parse (mp.mpf) unless the string contains 'i' or 'j'
+    if ('i' not in s) and ('j' not in s):
+        try:
+            return mp.mpf(s)
+        except Exception:
+            pass
+    # fallback: allow 'i' by converting to 'j' for mpc parser
+    try:
+        return mpc(s.replace('i','j'))
+    except Exception as e:
+        # rethrow original error
+        raise ValueError(f'cannot parse input: {s}') from e
+
+# Hadamard: (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
+def hadamard_direct(x):
+    num = psi(1 - x/2) - psi((1 - x)/2)
+    den = mp.mpf(2) * gamma(1 - x)
+    return num / den
+
+# Luschny: L(x) = Gamma(x+1) * (1 - (sin(pi x)/(pi x)) * ( x/2*(psi((x+1)/2)-psi(x/2)) - 1/2 ))
+def luschny_L(x):
+    g = gamma(x + 1)
+    # safe sinc
+    denom = pi * x
+    if denom == 0:
+        sinc = mp.mpf(1)
+    else:
+        sinc = sin(pi * x) / denom
+    inner = (x / 2) * (psi((x + 1) / 2) - psi(x / 2)) - mp.mpf('1/2')
+    return g * (1 - sinc * inner)
+
+# shifted-by-minus-one variant used in the unshifted panel in your UI:
+def luschny_shift_minus1(x):
+    y = x - 1
+    g = gamma(y + 1)  # Gamma(x-1+1) = Gamma(x)
+    denom = pi * y
+    if denom == 0:
+        sinc = mp.mpf(1)
+    else:
+        sinc = sin(pi * y) / denom
+    inner = (y / 2) * (psi((y + 1) / 2) - psi(y / 2)) - mp.mpf('1/2')
+    return g * (1 - sinc * inner)
+
+# symmetric limit helper (choose eps safe with mp.dps=250)
+def symmetric_limit(f, x, eps=None):
+    if eps is None:
+        eps = mp.power(10, -30)  # somewhat larger than 10^-40 to avoid underflow/cancellation
+    return (f(x + eps) + f(x - eps)) / 2
+
+# main exposed function
+def compute_values(x_str, shift):
+    mp.dps = 250
+    x = parse_input(x_str)
+
+    # Euler gamma:
+    try:
+        if shift:
+            valg = gamma(x + 1)
+        else:
+            valg = gamma(x)
+        out_gamma = fmt(valg)
+    except Exception:
+        out_gamma = '∞̃'
+
+    # Hadamard: handle integer-limit for nonnegative integers (approach via symmetric limit)
+    try:
+        X = x + 1 if shift else x
+        need_limit = (not isinstance(X, mpc)) and (mp.re(X) == mp.mpf(int(mp.re(X)))) and (int(mp.re(X)) >= 0)
+        if need_limit:
+            valh = symmetric_limit(hadamard_direct, X)
+        else:
+            valh = hadamard_direct(X)
+        out_had = fmt(valh)
+    except Exception:
+        out_had = '∞̃'
+
+    # Luschny: choose which formula depending on shift flag (and integer-limit for <=0 in shifted-by-minus-one panel)
+    try:
+        if shift:
+            # Luschny L(x)
+            X = x
+            need_limit = (not isinstance(X, mpc)) and (mp.re(X) == mp.mpf(int(mp.re(X)))) and (int(mp.re(X)) <= 0)
+            if need_limit:
+                vall = symmetric_limit(luschny_L, X)
+            else:
+                vall = luschny_L(X)
+            out_lus = fmt(vall)
+        else:
+            # argument-shifted-by-(-1) variant
+            X = x
+            need_limit = (not isinstance(X, mpc)) and (mp.re(X) == mp.mpf(int(mp.re(X)))) and (int(mp.re(X)) <= 0)
+            if need_limit:
+                vall = symmetric_limit(luschny_shift_minus1, X)
+            else:
+                vall = luschny_shift_minus1(X)
+            out_lus = fmt(vall)
+    except Exception:
+        out_lus = '∞̃'
+
+    return out_gamma, out_had, out_lus
+`;
 
     async function initPyodide(){
       try{
@@ -118,7 +256,7 @@
         await pyodide.loadPackage('micropip');
         await pyodide.runPythonAsync(`import micropip
 await micropip.install('mpmath')`);
-        // Put the compute helper into the pyodide globals so we can call it repeatedly
+        // load compute module
         await pyodide.runPythonAsync(pythonComputeModule);
         pyodideReady = true;
         computeBtn.disabled = false;
@@ -127,273 +265,11 @@ await micropip.install('mpmath')`);
       } catch(err){
         console.error('Pyodide init error', err);
         status.textContent = 'Failed to load Python or packages. See error details below.';
-        showError(String(err) + '\n\nHint: network or CDN may be blocked.');
+        showError(String(err) + '\\n\\nHint: network or CDN may be blocked.');
         computeBtn.disabled = true;
         computeBtn.textContent = 'Error';
       }
     }
-
-    // The python helper module as a string. It sets mp.dps = 250 and exposes compute_values(x_str, shiftOn)
-    const pythonComputeModule = `
-from mpmath import mp, mpc, mpf, nstr, sin, pi, psi, gamma, isnan, isinf
-
-# internal precision (250 decimal places)
-mp.dps = 250
-
-# Format a real or complex mp number with 15 significant digits in decimal/scientific as appropriate.
-def fmt(z):
-    # z may be mp.mpf or mp.mpc
-    if isinf(z):
-        return '∞̃'
-    # treat extremely large magnitude as infinite for display purposes (pole)
-    try:
-        if abs(z) > mp.mpf('1e200'):
-            return '∞̃'
-    except Exception:
-        pass
-
-    # For complex numbers show a+bi style using 'i'
-    if isinstance(z, mpc):
-        re = mp.re(z)
-        im = mp.im(z)
-        if mp.sign(im) == 0:
-            return nstr(re, 15)
-        if mp.sign(re) == 0:
-            s = nstr(abs(im), 15)
-            sign = '-' if mp.sign(im) < 0 else ''
-            return f\"{sign}{s}i\"
-        re_s = nstr(re, 15)
-        im_s = nstr(abs(im), 15)
-        sign = ' + ' if mp.sign(im) >= 0 else ' - '
-        return f\"{re_s}{sign}{im_s}i\"
-    else:
-        return nstr(z, 15)
-
-# helper: check exact real integer status
-def is_exact_real_integer(z):
-    if isinstance(z, mpc):
-        return False
-    # z is mp.mpf
-    if mp.im(z) != 0:
-        return False
-    try:
-        r = mp.re(z)
-        # exact integer test: r == int(r)
-        if r == mp.mpf(int(r)):
-            return True
-    except Exception:
-        pass
-    return False
-
-# safely parse input string into mpc
-def parse_input(s):
-    s = s.strip()
-    if s == '':
-        raise ValueError('empty input')
-    # allow 'j' for imaginary unit; mpc accepts 'j' or 'i'?
-    # mpmath's mpc can parse '1+2j'
-    try:
-        val = mpc(s)
-        return val
-    except Exception as e:
-        # try replace 'i' with 'j' (users might type 'i')
-        try:
-            val = mpc(s.replace('i','j'))
-            return val
-        except Exception:
-            raise
-
-# Hadamard gamma as specified:
-# H(x) = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
-def hadamard_direct(x):
-    # compute directly
-    num = psi(1 - x/2) - psi((1 - x)/2)
-    den = 2 * gamma(1 - x)
-    return num / den
-
-# Luschny factorial L(x) = Gamma(x+1) * (1 - (sin(pi x)/(pi x)) * ( x/2*(psi((x+1)/2)-psi(x/2)) - 1/2 ))
-def luschny_L(x):
-    # be careful at x = 0 where sin(pi x)/(pi x) -> 1
-    # expression written exactly as requested
-    g = gamma(x + 1)
-    # safe computation of sin(pi x)/(pi x) for small x:
-    denom = pi * x
-    if denom == 0:
-        sinc = mp.mpf(1)  # limit
-    else:
-        sinc = sin(pi * x) / denom
-    inner = (x / 2) * (psi((x + 1) / 2) - psi(x / 2)) - mp.mpf('1/2')
-    return g * (1 - sinc * inner)
-
-# variant: Luschny factorial but with argument shifted by -1 in the sense requested:
-# In the "argument shifted by -1" panel the user provided formula uses (x-1) variable inside.
-# We'll implement exactly: y = x - 1
-def luschny_shift_minus1(x):
-    y = x - 1
-    # Gamma((x - 1) + 1) = Gamma(x)
-    g = gamma(y + 1)
-    denom = pi * y
-    if denom == 0:
-        sinc = mp.mpf(1)
-    else:
-        sinc = sin(pi * y) / denom
-    inner = (y / 2) * (psi((y + 1) / 2) - psi(y / 2)) - mp.mpf('1/2')
-    return g * (1 - sinc * inner)
-
-# To handle integer-limits: compute symmetric small-displacement limit
-def symmetric_limit(f, x, eps=None):
-    if eps is None:
-        # choose eps based on precision: not too tiny to avoid catastrophic cancellation
-        # with mp.dps = 250, eps = 10**(-40) is reasonable
-        eps = mp.power(10, -40)
-    return (f(x + eps) + f(x - eps)) / 2
-
-# Main exposed function: compute_values(x_str, shift)
-def compute_values(x_str, shift):
-    mp.dps = 250  # ensure high internal precision
-    try:
-        x = parse_input(x_str)
-    except Exception as e:
-        raise ValueError('Failed to parse input: ' + str(e))
-
-    # Determine if input is an exact real integer (for limit handling)
-    is_real_integer = False
-    int_value = None
-    if isinstance(x, mpc):
-        if mp.im(x) == 0:
-            # it's effectively real
-            x_real = mp.re(x)
-            if x_real == mp.mpf(int(x_real)):
-                is_real_integer = True
-                int_value = int(x_real)
-    else:
-        # mp.mpf
-        if mp.re(x) == mp.mpf(int(mp.re(x))):
-            is_real_integer = True
-            int_value = int(mp.re(x))
-
-    # Compute Euler Gamma depending on shift:
-    # Unshifted: Euler = Gamma(x)
-    # Shifted (+1): Euler = Gamma(x + 1)
-    try:
-        if shift:
-            # Gamma(x + 1)
-            gx = gamma(x + 1)
-            # pole detection: if gamma infinite or enormous treat as pole
-            if isinf(gx) or abs(gx) > mp.mpf('1e200'):
-                out_gamma = '∞̃'
-            else:
-                out_gamma = fmt(gx)
-        else:
-            gx = gamma(x)
-            if isinf(gx) or abs(gx) > mp.mpf('1e200'):
-                out_gamma = '∞̃'
-            else:
-                out_gamma = fmt(gx)
-    except Exception:
-        # If gamma raised because of pole or other numerical issue, mark as infinite
-        out_gamma = '∞̃'
-
-    # Compute Hadamard:
-    # Unshifted formula: (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
-    # Shifted formula: replace x by x+1 inside the expression as user required
-    try:
-        if shift:
-            # hadamard of x+1
-            X = x + 1
-            # If X is exact real integer >= 0, compute symmetric limit
-            is_int_for_limit = False
-            if isinstance(X, mpc):
-                if mp.im(X) == 0:
-                    xr = mp.re(X)
-                    if xr == mp.mpf(int(xr)) and int(xr) >= 0:
-                        is_int_for_limit = True
-            else:
-                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) >= 0:
-                    is_int_for_limit = True
-            if is_int_for_limit:
-                val_had = symmetric_limit(hadamard_direct, X)
-            else:
-                val_had = hadamard_direct(X)
-            if isinf(val_had) or abs(val_had) > mp.mpf('1e200'):
-                out_had = '∞̃'
-            else:
-                out_had = fmt(val_had)
-        else:
-            X = x
-            # For integers >= 0 we compute limit (as requested)
-            is_int_for_limit = False
-            if isinstance(X, mpc):
-                if mp.im(X) == 0:
-                    xr = mp.re(X)
-                    if xr == mp.mpf(int(xr)) and int(xr) >= 0:
-                        is_int_for_limit = True
-            else:
-                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) >= 0:
-                    is_int_for_limit = True
-            if is_int_for_limit:
-                val_had = symmetric_limit(hadamard_direct, X)
-            else:
-                val_had = hadamard_direct(X)
-            if isinf(val_had) or abs(val_had) > mp.mpf('1e200'):
-                out_had = '∞̃'
-            else:
-                out_had = fmt(val_had)
-    except Exception:
-        out_had = '∞̃'
-
-    # Compute Luschny factorial cases:
-    # Unshifted panel shows "Luschny factorial (argument shifted by −1)" -> uses luschny_shift_minus1(x)
-    # Shifted panel (toggle on) shows "Luschny factorial" -> uses luschny_L(x)
-    try:
-        if shift:
-            # L(x) = luschny_L(x)
-            X = x
-            # For integers <= 0 special-case requirement in user's text concerned the "argument shifted by -1" rather than this branch,
-            # but we'll still guard numerically: if X is exact integer <= 0 we can still evaluate symmetric limit if direct gives trouble.
-            need_limit = False
-            if isinstance(X, mpc):
-                if mp.im(X) == 0:
-                    xr = mp.re(X)
-                    if xr == mp.mpf(int(xr)) and int(xr) <= 0:
-                        need_limit = True
-            else:
-                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) <= 0:
-                    need_limit = True
-            if need_limit:
-                val_lus = symmetric_limit(luschny_L, X)
-            else:
-                val_lus = luschny_L(X)
-            if isinf(val_lus) or abs(val_lus) > mp.mpf('1e200'):
-                out_lus = '∞̃'
-            else:
-                out_lus = fmt(val_lus)
-        else:
-            # "argument shifted by -1" version
-            X = x
-            # For integers <= 0 the user requested the Luschny factorial (argument shifted by -1) must approach them via a limit
-            need_limit = False
-            if isinstance(X, mpc):
-                if mp.im(X) == 0:
-                    xr = mp.re(X)
-                    if xr == mp.mpf(int(xr)) and int(xr) <= 0:
-                        need_limit = True
-            else:
-                if mp.re(X) == mp.mpf(int(mp.re(X))) and int(mp.re(X)) <= 0:
-                    need_limit = True
-            if need_limit:
-                val_lus = symmetric_limit(luschny_shift_minus1, X)
-            else:
-                val_lus = luschny_shift_minus1(X)
-            if isinf(val_lus) or abs(val_lus) > mp.mpf('1e200'):
-                out_lus = '∞̃'
-            else:
-                out_lus = fmt(val_lus)
-    except Exception:
-        out_lus = '∞̃'
-
-    return out_gamma, out_had, out_lus
-`;
 
     initPyodide();
 
@@ -420,15 +296,12 @@ def compute_values(x_str, shift):
       status.textContent = 'Computing...';
 
       try {
-        // pass input and shift flag to the Python compute_values function we loaded into pyodide
         pyodide.globals.set('x_in', raw);
         pyodide.globals.set('shift_flag', shiftOn ? 1 : 0);
         const res = await pyodide.runPythonAsync(`
-# call compute_values exposed earlier
 shift = True if int(shift_flag) == 1 else False
 compute_values(x_in, shift)
 `);
-        // res should be a Python tuple of three strings
         const [g, h, l] = res;
         outGamma.textContent = g;
         outHad.textContent = h;
