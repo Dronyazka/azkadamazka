@@ -31,7 +31,7 @@
   <div class="wrap">
     <div class="card">
       <div class="controls">
-        <input id="xinput" type="text" placeholder="Enter a number" aria-label="x value" />
+        <input id="xinput" type="text" placeholder="Enter a number (real or complex, e.g. 3.5 or 1+2j)" aria-label="x value" />
         <div class="row-btns" style="display:flex;gap:8px">
           <button id="compute" class="btn">Compute</button>
           <button id="toggle" class="btn toggle">+1</button>
@@ -154,75 +154,144 @@ Hint: network or CDN may be blocked.');
       status.textContent = 'Computing...';
 
       const code = `
+# Adapted compute routine taken from the working 'Factorial family' example
+from mpmath import mp, mpf, mpc, sin, pi, nstr, gamma, digamma
 import traceback
-from mpmath import mp, mpf, sin, pi, nstr
 mp.mp.dps = 250
+
+# robust string formatting helpers (adapted)
+def format_complex(z, integer_input=False, keep_imag=False):
+    try:
+        if mp.isinf(z) or abs(z) > mp.mpf('1e300'):
+            return '∞̃'
+        re = mp.re(z)
+        im = mp.im(z)
+        if integer_input and not keep_imag:
+            im = mp.mpf('0')
+        re_s = nstr(re, 40)
+        im_s = nstr(im, 40)
+        def norm(s):
+            if 'e' in s or 'E' in s:
+                return s
+            if '.' in s:
+                s = s.rstrip('0').rstrip('.')
+                if s == '-0':
+                    return '0'
+            return s
+        re_s = norm(re_s)
+        im_abs_s = norm(im_s.lstrip('-'))
+        if mp.sign(im) == 0:
+            return re_s
+        if mp.sign(re) == 0:
+            sign = '-' if mp.sign(im) < 0 else ''
+            return f"{sign}{im_abs_s}i"
+        sign = ' + ' if mp.sign(im) >= 0 else ' - '
+        return f"{re_s}{sign}{im_abs_s}i"
+    except Exception:
+        return 'Error'
+
+def approximate_if_needed(s):
+    try:
+        if 'i' in s or s=='∞̃':
+            return s
+        num = mp.mpf(s)
+        if num == 0:
+            return '0'
+        if (mp.mpf('1e-10') < abs(num) < mp.mpf('1e30')):
+            fixed = nstr(num, 40)
+            if 'e' in fixed or 'E' in fixed:
+                with mp.workdps(40):
+                    fixed = nstr(num, 40)
+            if '.' in fixed:
+                fixed = fixed.rstrip('0').rstrip('.')
+            if fixed in ('-0', '+0'):
+                return '0'
+            return fixed
+        else:
+            sci = nstr(num, 30, min_fixed=0)
+            return f'approximately {sci}'
+    except Exception:
+        return s
+
+# parse input allowing complex numbers
 try:
-    x = mp.mpf(${JSON.stringify(raw)})
+    x = mpc(${JSON.stringify(raw)})
 except Exception as e:
-    import traceback
     result = {'error': 'Invalid input: ' + str(e) + '
 ' + traceback.format_exc()}
 else:
     try:
+        is_integer_input = (mp.im(x) == 0 and mp.re(x) == int(mp.re(x)))
         s = ${shiftOn ? 'True' : 'False'}
 
-        def fmt(v):
-            try:
-                if not mp.isfinite(v):
-                    return '∞̃'
-                return nstr(v, 15)
-            except Exception:
-                return '∞̃'
-
-        def safe_gamma(a):
-            try:
-                g = mp.gamma(a)
-                if not mp.isfinite(g):
-                    return None
-                return g
-            except Exception:
-                return None
-
         if s:
-            gamma_val = safe_gamma(x + 1)
-            gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
-            den = safe_gamma(1 - (x + 1))
+            # shifted-by-+1 mode
+            g = None
             try:
-                had = (mp.digamma(1 - (x + 1)/2) - mp.digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
-                had_out = '∞̃' if had is None else fmt(had)
+                g = gamma(x + 1)
+            except Exception:
+                g = None
+            gamma_out = '∞̃' if g is None or not mp.isfinite(g) else approximate_if_needed(format_complex(g, integer_input=False))
+
+            den = None
+            try:
+                den = gamma(1 - (x + 1))
+            except Exception:
+                den = None
+            try:
+                if den is None or not mp.isfinite(den):
+                    had_out = '∞̃'
+                else:
+                    had = (digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)) / (2 * den)
+                    had_out = approximate_if_needed(format_complex(had))
             except Exception:
                 had_out = '∞̃'
+
+            # Luschny for shifted-on (+1) (no -1 shift)
             try:
                 if mp.almosteq(x, 0):
-                    lus_out = fmt(mp.mpf('1'))
+                    lus_out = '1'
                 else:
-                    if gamma_val is None:
+                    if g is None or not mp.isfinite(g):
                         lus_out = '∞̃'
                     else:
-                        lus = gamma_val * (1 - mp.sin(mp.pi * x) / (mp.pi * x)) * (x/2 * (mp.digamma((x + 1)/2) - mp.digamma(x/2)) - mp.mpf('1')/2)
-                        lus_out = fmt(lus)
+                        lusval = g * (1 - sin(pi * x) / (pi * x)) * (x/2 * (digamma((x + 1)/2) - digamma(x/2)) - mp.mpf('1')/2)
+                        lus_out = approximate_if_needed(format_complex(lusval))
             except Exception:
                 lus_out = '∞̃'
         else:
-            gamma_val = safe_gamma(x)
-            gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
-            den = safe_gamma(1 - x)
+            # unshifted mode
+            g = None
             try:
-                had = (mp.digamma(1 - x/2) - mp.digamma((1 - x)/2)) / (2 * den) if den is not None else None
-                had_out = '∞̃' if had is None else fmt(had)
+                g = gamma(x)
+            except Exception:
+                g = None
+            gamma_out = '∞̃' if g is None or not mp.isfinite(g) else approximate_if_needed(format_complex(g, integer_input=False))
+
+            den = None
+            try:
+                den = gamma(1 - x)
+            except Exception:
+                den = None
+            try:
+                if den is None or not mp.isfinite(den):
+                    had_out = '∞̃'
+                else:
+                    had = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * den)
+                    had_out = approximate_if_needed(format_complex(had))
             except Exception:
                 had_out = '∞̃'
+
             y = x - 1
             try:
                 if mp.almosteq(y, 0):
-                    lus_out = fmt(mp.mpf('1'))
+                    lus_out = '1'
                 else:
-                    if gamma_val is None:
+                    if g is None or not mp.isfinite(g):
                         lus_out = '∞̃'
                     else:
-                        lus = gamma_val * (1 - mp.sin(mp.pi * y) / (mp.pi * y)) * (y/2 * (mp.digamma((y + 1)/2) - mp.digamma(y/2)) - mp.mpf('1')/2)
-                        lus_out = fmt(lus)
+                        lusval = g * (1 - sin(pi * y) / (pi * y)) * (y/2 * (digamma((y + 1)/2) - digamma(y/2)) - mp.mpf('1')/2)
+                        lus_out = approximate_if_needed(format_complex(lusval))
             except Exception:
                 lus_out = '∞̃'
 
