@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gamma / Hadamard / Luschny (Pyodide) — reworked</title>
+  <title>Gamma / Hadamard / Luschny (Pyodide) — digamma-detection</title>
   <style>
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8;padding:24px}
@@ -20,7 +20,7 @@
     pre#errorBox{background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px}
     @media (max-width:600px){
       .controls{flex-direction:column;align-items:stretch}
-      .row-btns{display:flex;gap:8px}
+      .row-btns{display:flex;gap:8px;margin-top:8px}
       .row-btns button{flex:1}
     }
   </style>
@@ -56,6 +56,7 @@
     </div>
   </div>
 
+  <!-- Pyodide -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script>
     const computeBtn = document.getElementById('compute');
@@ -106,214 +107,205 @@
       if(pyodideReady) compute();
     });
 
-    // Python module text (single source-of-truth)
+    // Python helper module as string
     const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, psi, gamma, mpf as mpf_ctor
-
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log
+# We'll try to use an available digamma; mp.psi may be unexpected in some builds
 # internal precision
 mp.dps = 250
 
-# Output formatting: 15 significant digits requested
-def fmt_number(z):
-    # treat mpmath infinities as "∞̃"
+# Attempt to create a robust digamma(x) wrapper
+def _make_digamma():
+    # try mp.psi(x)
+    try:
+        test = mp.psi(mp.mpf('0.5'))  # try single-arg call
+        return lambda z: mp.psi(z)
+    except TypeError:
+        # mp.psi likely expects (n, z) (polygamma-like) or has different signature; try mp.polygamma(0, z)
+        try:
+            test2 = mp.polygamma(0, mp.mpf('0.5'))
+            return lambda z: mp.polygamma(0, z)
+        except Exception:
+            # maybe mp.digamma exists
+            try:
+                test3 = mp.digamma(mp.mpf('0.5'))
+                return lambda z: mp.digamma(z)
+            except Exception:
+                # fallback numerical derivative: digamma = d/dz log(gamma(z))
+                def fallback(z):
+                    # choose h appropriate to mp.dps
+                    h = mp.power(10, -10)
+                    return (log(gamma(z + h)) - log(gamma(z - h))) / (2*h)
+                return fallback
+    except Exception:
+        # any other exception -> fallback to polygamma attempt then numeric
+        try:
+            test2 = mp.polygamma(0, mp.mpf('0.5'))
+            return lambda z: mp.polygamma(0, z)
+        except Exception:
+            def fallback(z):
+                h = mp.power(10, -10)
+                return (log(gamma(z + h)) - log(gamma(z - h))) / (2*h)
+            return fallback
+
+digamma = _make_digamma()
+
+# ---------- formatting and helpers ----------
+def fmt(z):
     try:
         if mp.isinf(z):
             return '∞̃'
     except Exception:
         pass
-    # safe threshold for "too large"
     try:
         if abs(z) > mp.mpf('1e300'):
             return '∞̃'
     except Exception:
         pass
-
-    # complex handling
     if isinstance(z, mpc):
-        re = mp.re(z)
-        im = mp.im(z)
-        # zero imaginary
+        re = mp.re(z); im = mp.im(z)
         if mp.sign(im) == 0:
             return nstr(re, 15)
-        # zero real
         if mp.sign(re) == 0:
             sign = '-' if mp.sign(im) < 0 else ''
             return f\"{sign}{nstr(abs(im), 15)}i\"
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
         return f\"{nstr(re,15)}{sign}{nstr(abs(im),15)}i\"
     else:
-        # real
         return nstr(z, 15)
 
-# safer parse: prefer real (mpf) unless user explicitly included 'i' or 'j'
 def parse_input(s):
     s = s.strip()
     if s == '':
         raise ValueError('empty input')
     if ('i' not in s) and ('j' not in s):
-        # try mpf (real)
         try:
             return mp.mpf(s)
         except Exception:
             pass
-    # fallback to complex parsing (mpc expects 'j' for imaginary unit)
     try:
         return mpc(s.replace('i','j'))
     except Exception as e:
-        raise ValueError('could not parse input: ' + s) from e
+        raise ValueError('cannot parse input: ' + s) from e
 
-# detect exact real integer (mpf only)
 def is_exact_real_integer(x):
     if isinstance(x, mpc):
         return False
     try:
         r = mp.re(x)
-        # compare to integer with exact mp arithmetic
         return r == mp.mpf(int(r))
     except Exception:
         return False
 
-# symmetric limit helper with safe eps
-def symmetric_limit(func, x, eps=None):
+def symmetric_limit(f, x, eps=None):
     if eps is None:
-        # choose eps to be small relative to 1 but large enough to avoid catastrophic cancellation
         eps = mp.power(10, -30)
-    return (func(x + eps) + func(x - eps)) / 2
+    return (f(x + eps) + f(x - eps)) / 2
 
-# Hadamard gamma (direct formula)
+# ---------- math formulas using digamma wrapper ----------
 def hadamard_direct(x):
-    # (psi(1 - x/2) - psi((1 - x)/2)) / (2 * Gamma(1 - x))
-    num = psi(1 - x/2) - psi((1 - x)/2)
+    # uses digamma instead of psi
+    num = digamma(1 - x/2) - digamma((1 - x)/2)
     den = mp.mpf(2) * gamma(1 - x)
     return num / den
 
-# Luschny: exact formula L(x) = Gamma(x+1) * (1 - (sin(pi x)/(pi x)) * (x/2*(psi((x+1)/2)-psi(x/2)) - 1/2))
 def luschny_L(x):
     g = gamma(x + 1)
-    # safe sinc: sin(pi x)/(pi x) with limit 1 at x=0
     denom = pi * x
     if denom == 0:
         sinc = mp.mpf(1)
     else:
         sinc = sin(pi * x) / denom
-    inner = (x / 2) * (psi((x + 1) / 2) - psi(x / 2)) - mp.mpf('1/2')
+    inner = (x / 2) * (digamma((x + 1) / 2) - digamma(x / 2)) - mp.mpf('1/2')
     return g * (1 - sinc * inner)
 
-# Luschny for "argument shifted by -1" panel:
-# user formula: Gamma((x-1)+1) * (1 - sin(pi (x-1))/(pi (x-1)) * ( (x-1)/2*(psi(((x-1)+1)/2)-psi((x-1)/2)) - 1/2 ) )
 def luschny_shift_minus1(x):
     y = x - 1
-    g = gamma(y + 1)  # Gamma((x-1)+1) = Gamma(x)
+    g = gamma(y + 1)
     denom = pi * y
     if denom == 0:
         sinc = mp.mpf(1)
     else:
         sinc = sin(pi * y) / denom
-    inner = (y / 2) * (psi((y + 1) / 2) - psi(y / 2)) - mp.mpf('1/2')
+    inner = (y / 2) * (digamma((y + 1) / 2) - digamma(y / 2)) - mp.mpf('1/2')
     return g * (1 - sinc * inner)
 
-# utility: check gamma pole for Gamma(t) with real integer t <= 0 (the standard poles)
-def gamma_has_pole_at(t):
-    # only simple detection for exact real integer <= 0
-    if isinstance(t, mpc):
-        if mp.sign(mp.im(t)) != 0:
-            return False
-        t = mp.re(t)
-    try:
-        if t == mp.mpf(int(t)) and int(t) <= 0:
-            return True
-    except Exception:
-        pass
-    return False
-
-# main function exposed to JS
+# main compute function: returns strings for display
 def compute_values(x_str, shift):
     mp.dps = 250
     x = parse_input(x_str)
 
-    # EULER GAMMA output rules:
-    # - If gamma(...) is a pole, show "∞̃"
+    # Euler gamma display
     try:
-        if shift:
-            targ = x + 1
-        else:
-            targ = x
-        # pole detection for exact real integer <= 0
+        targ = x + 1 if shift else x
+        # pole detection for Gamma at nonpositive integers
         if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
             out_gamma = '∞̃'
         else:
-            valg = gamma(targ)
-            if mp.isinf(valg) or abs(valg) > mp.mpf('1e300'):
-                out_gamma = '∞̃'
-            else:
-                out_gamma = fmt_number(valg)
+            gval = gamma(targ)
+            out_gamma = fmt(gval) if (not mp.isinf(gval)) else '∞̃'
     except Exception:
         out_gamma = '∞̃'
 
-    # HADAMARD: use formula with integer limits for nonnegative integers
+    # Hadamard (use integer-limits for nonnegative integers)
     try:
-        if shift:
-            X = x + 1
-        else:
-            X = x
-        # For integers >= 0 we approach by symmetric limit as requested
+        X = x + 1 if shift else x
         need_limit = (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0
         if need_limit:
-            valh = symmetric_limit(hadamard_direct, X)
+            val_h = symmetric_limit(hadamard_direct, X)
         else:
-            valh = hadamard_direct(X)
-        if mp.isinf(valh) or abs(valh) > mp.mpf('1e300') or mp.isnan(valh):
+            val_h = hadamard_direct(X)
+        if mp.isnan(val_h) or mp.isinf(val_h) or abs(val_h) > mp.mpf('1e300'):
             out_had = '∞̃'
         else:
-            out_had = fmt_number(valh)
+            out_had = fmt(val_h)
     except Exception:
         out_had = '∞̃'
 
-    # LUSCHNY: choose correct formula and enforce limit behavior for integers <= 0 (for shifted-by-minus-one panel)
+    # Luschny: either L(x) or shifted-by-minus-one version based on UI
     try:
         if shift:
-            # Luschny factorial (no argument shift in label)
             X = x
             need_limit = (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) <= 0
             if need_limit:
-                vall = symmetric_limit(luschny_L, X)
+                val_l = symmetric_limit(luschny_L, X)
             else:
-                vall = luschny_L(X)
+                val_l = luschny_L(X)
         else:
-            # display is "Luschny factorial (argument shifted by -1)"
             X = x
             need_limit = (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) <= 0
             if need_limit:
-                vall = symmetric_limit(luschny_shift_minus1, X)
+                val_l = symmetric_limit(luschny_shift_minus1, X)
             else:
-                vall = luschny_shift_minus1(X)
-        if mp.isinf(vall) or abs(vall) > mp.mpf('1e300') or mp.isnan(vall):
+                val_l = luschny_shift_minus1(X)
+        if mp.isnan(val_l) or mp.isinf(val_l) or abs(val_l) > mp.mpf('1e300'):
             out_lus = '∞̃'
         else:
-            out_lus = fmt_number(vall)
+            out_lus = fmt(val_l)
     except Exception:
         out_lus = '∞̃'
 
     return out_gamma, out_had, out_lus
 `;
 
-    // initialize pyodide and install mpmath
-    async function initPyodide() {
-      try {
+    // initialize pyodide and load mpmath, then the helper module
+    async function initPyodide(){
+      try{
         computeBtn.disabled = true;
         computeBtn.textContent = 'Loading Python…';
         status.textContent = 'Loading Pyodide...';
         window.pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
         status.textContent = 'Installing mpmath...';
         await pyodide.loadPackage('micropip');
-        await pyodide.runPythonAsync(`import micropip\nawait micropip.install('mpmath')`);
-        // load our compute module into pyodide globals
+        await pyodide.runPythonAsync(`import micropip
+await micropip.install('mpmath')`);
+        // load the compute helper
         await pyodide.runPythonAsync(pythonComputeModule);
         pyodideReady = true;
         computeBtn.disabled = false;
         computeBtn.textContent = 'Compute';
         status.textContent = 'Ready';
-      } catch (err) {
+      } catch(err){
         console.error('Pyodide init error', err);
         status.textContent = 'Failed to load Python or packages. See error details below.';
         showError(String(err) + '\\n\\nHint: network or CDN may be blocked.');
@@ -353,7 +345,6 @@ def compute_values(x_str, shift):
 shift = True if int(shift_flag) == 1 else False
 compute_values(x_in, shift)
 `);
-        // res is a Python tuple-like object; destructure:
         const [g, h, l] = res;
         outGamma.textContent = g;
         outHad.textContent = h;
