@@ -105,7 +105,6 @@
       margin-top: 16px;
       display: none;
     }
-    /* mobile layout: buttons below input */
     @media (max-width: 600px) {
       .controls {
         flex-direction: column;
@@ -124,7 +123,6 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <!-- input + buttons row -->
     <div class="controls">
       <input type="text" id="xinput" placeholder="e.g. 2.5, -1, 1+2j" aria-label="Argument x" />
       <div class="row-btns">
@@ -133,7 +131,6 @@
       </div>
     </div>
 
-    <!-- result panels -->
     <div class="box">
       <div id="labelGamma" class="label">Euler gamma function:</div>
       <div id="outGamma" class="out">—</div>
@@ -152,11 +149,9 @@
   </div>
 </div>
 
-<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
   (function() {
-    // DOM elements
     const computeBtn = document.getElementById('compute');
     const toggleBtn = document.getElementById('toggle');
     const xinput = document.getElementById('xinput');
@@ -171,11 +166,9 @@
     const labelHad = document.getElementById('labelHad');
     const labelLus = document.getElementById('labelLus');
 
-    // state
     let pyodideReady = false;
     let shiftOn = false;       // false = unshifted (toggle shows "+1")
 
-    // helper to show error messages
     function showError(msg) {
       errorBox.textContent = msg;
       errorBox.style.display = 'block';
@@ -185,7 +178,6 @@
       errorBox.style.display = 'none';
     }
 
-    // update button text and labels according to shiftOn
     function updateUILabels() {
       if (shiftOn) {
         toggleBtn.textContent = '−1';
@@ -200,16 +192,14 @@
       }
     }
 
-    // toggle click
     toggleBtn.addEventListener('click', () => {
       shiftOn = !shiftOn;
       updateUILabels();
       if (pyodideReady && xinput.value.trim() !== '') {
-        compute();   // auto‑recompute after toggle
+        compute();
       }
     });
 
-    // Pyodide initialisation
     async function initPyodide() {
       try {
         computeBtn.disabled = true;
@@ -237,11 +227,9 @@
     }
     initPyodide();
 
-    // compute on click / enter
     computeBtn.addEventListener('click', compute);
     xinput.addEventListener('keydown', (e) => { if (e.key === 'Enter') compute(); });
 
-    // core computation
     async function compute() {
       clearError();
       if (!pyodideReady) {
@@ -258,35 +246,29 @@
         return;
       }
 
-      // disable button during computation
       computeBtn.disabled = true;
       computeBtn.textContent = 'Computing…';
       statusDiv.textContent = '⚙️ computing ...';
 
       try {
-        // pass the raw string and shift flag to Python
         pyodide.globals.set('x_str', raw);
-        // shift as integer 0/1 (easier than boolean)
         const shiftInt = shiftOn ? 1 : 0;
 
-        // Python code with mp.dps = 250, 15‑digit output, pole detection
+        // Python code with per‑function exception handling and 250‑digit precision
         const code = `
 from mpmath import mp, gamma, psi, sin, pi, nstr, inf, isinf, isnan, mpc, mpmathify
 
-mp.dps = 250   # internal precision
+mp.dps = 250
 
 def format_value(z):
     """return a string with 15 significant digits; poles → ∞̃"""
-    # pole / undefined / infinite → tilde infinity
     if isinf(z) or isnan(z):
         return "∞̃"
-    # complex with zero imaginary part -> real
     if isinstance(z, mpc):
         re = mp.re(z)
         im = mp.im(z)
         if im == 0:
             return nstr(re, 15)
-        # format a ± b*j
         re_str = nstr(re, 15)
         im_str = nstr(abs(im), 15)
         sign = '+' if im >= 0 else '-'
@@ -294,57 +276,60 @@ def format_value(z):
     else:
         return nstr(z, 15)
 
+# Parse input
 try:
     x = mpmathify(x_str)
 except Exception:
-    # parsing error
     euler = had = lus = "❌ invalid input"
 else:
-    try:
-        if shift == 0:
-            # ----- unshifted (argument = x) -----
-            euler_val = gamma(x)
+    # Helper for safe computation of each function
+    def safe_gamma():
+        try:
+            val = gamma(x) if shift == 0 else gamma(x + 1)
+            return format_value(val)
+        except Exception:
+            return "∞̃"
 
-            # Hadamard: (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
-            had_val = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
+    def safe_hadamard():
+        try:
+            if shift == 0:
+                # Hadamard unshifted
+                val = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
+            else:
+                # Hadamard shifted (x+1)
+                val = (psi(1 - (x+1)/2) - psi((1 - (x+1))/2)) / (2 * gamma(1 - (x+1)))
+            return format_value(val)
+        except Exception:
+            return "∞̃"
 
-            # Luschny factorial (shift -1 already in formula)
-            # gamma(x) * (1 - sin(pi*(x-1))/(pi*(x-1))) * ((x-1)/2 * (psi(x/2)-psi((x-1)/2)) - 0.5)
-            term_sin = 1 - sin(pi*(x-1)) / (pi*(x-1))
-            term_digamma = ((x-1)/2) * (psi(x/2) - psi((x-1)/2)) - 0.5
-            lus_val = gamma(x) * term_sin * term_digamma
+    def safe_luschny():
+        try:
+            if shift == 0:
+                # Luschny factorial (shift -1 already in formula)
+                term_sin = 1 - sin(pi*(x-1)) / (pi*(x-1))
+                term_digamma = ((x-1)/2) * (psi(x/2) - psi((x-1)/2)) - 0.5
+                val = gamma(x) * term_sin * term_digamma
+            else:
+                # Luschny shifted (x+1)
+                term_sin = 1 - sin(pi*x) / (pi*x)
+                term_digamma = (x/2) * (psi((x+1)/2) - psi(x/2)) - 0.5
+                val = gamma(x + 1) * term_sin * term_digamma
+            return format_value(val)
+        except Exception:
+            return "∞̃"
 
-        else:
-            # ----- shifted by +1 (argument = x+1) -----
-            euler_val = gamma(x + 1)
+    euler = safe_gamma()
+    had = safe_hadamard()
+    lus = safe_luschny()
 
-            # Hadamard shifted
-            had_val = (psi(1 - (x+1)/2) - psi((1 - (x+1))/2)) / (2 * gamma(1 - (x+1)))
-
-            # Luschny factorial shifted
-            # gamma(x+1) * (1 - sin(pi*x)/(pi*x)) * (x/2 * (psi((x+1)/2)-psi(x/2)) - 0.5)
-            term_sin_shift = 1 - sin(pi*x) / (pi*x)
-            term_digamma_shift = (x/2) * (psi((x+1)/2) - psi(x/2)) - 0.5
-            lus_val = gamma(x + 1) * term_sin_shift * term_digamma_shift
-
-        # format results, replace infinities/nans with ∞̃
-        euler = format_value(euler_val)
-        had = format_value(had_val)
-        lus = format_value(lus_val)
-
-    except Exception as e:
-        # any runtime error (e.g. division by zero, pole) → ∞̃
-        euler = had = lus = "∞̃"
-
-# return three strings
 (euler, had, lus)
         `;
 
-        // inject shift value into Python code
-        const fullCode = code.replace('shift == 0', `shift == ${shiftInt}`).replace('shift == 1', `shift == ${shiftInt}`);
+        // Inject shift value into the code (replace the literal 'shift == 0' condition)
+        const fullCode = code.replace('if shift == 0', `if shift == ${shiftInt}`)
+                             .replace('else:', `else:`);  // else stays as is
 
         const result = await pyodide.runPythonAsync(fullCode);
-        // result is a Python tuple of three strings
         const [gammaStr, hadStr, lusStr] = result.toJs();
 
         outGamma.textContent = gammaStr;
@@ -362,12 +347,10 @@ else:
       } finally {
         computeBtn.disabled = false;
         computeBtn.textContent = 'Compute';
-        // clean up global to avoid memory leaks
         try { pyodide.globals.delete('x_str'); } catch(e) {}
       }
     }
 
-    // set initial labels
     updateUILabels();
   })();
 </script>
