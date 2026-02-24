@@ -1,347 +1,262 @@
 <!doctype html>
-
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gamma / Hadamard / Luschny (Pyodide)</title>
-  <style>
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8;padding:24px}
-    .card{background:#0b1220;padding:20px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.6);width:820px;max-width:100%}
-    .controls{display:flex;gap:8px;align-items:center}
-    input[type=text]{flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:inherit;font-size:16px}
-    .btn{padding:10px 14px;border-radius:8px;border:none;background:#2563eb;color:white;font-weight:600;cursor:pointer}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .toggle{min-width:64px}
-    .box{margin-top:12px;padding:12px;border-radius:8px;background:rgba(255,255,255,.02)}
-    .label{font-weight:700;margin-bottom:6px}
-    .out{font-family:monospace;white-space:pre-wrap}
-    .small{font-size:13px;color:rgba(230,238,248,.7);margin-top:8px}
-    .error{color:#ffb4b4}
-    pre#errorBox{background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px}@media (max-width:600px){
-  .controls{flex-direction:column;align-items:stretch}
-  .controls .row-btns{display:flex;gap:8px}
-  .controls .row-btns button{flex:1}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gamma Function Calculator</title>
+
+<style>
+html,body{
+  height:100%;
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
 }
-
-  </style>
+.wrap{
+  min-height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#0f172a;
+  color:#e6eef8;
+}
+.card{
+  background:#0b1220;
+  padding:28px;
+  border-radius:12px;
+  box-shadow:0 8px 30px rgba(2,6,23,.6);
+  width:820px;
+  max-width:98%;
+}
+.controls{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+input[type=text]{
+  flex:1;
+  padding:10px 12px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.02);
+  color:inherit;
+  font-size:16px;
+}
+button{
+  padding:10px 14px;
+  border-radius:8px;
+  border:none;
+  background:#2563eb;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  min-width:100px;
+}
+button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+.message{
+  margin-top:18px;
+  padding:14px;
+  border-radius:8px;
+  background:rgba(255,255,255,.02);
+  display:none;
+  font-family:monospace;
+  word-break:break-word;
+  white-space:pre-wrap;
+}
+@media (max-width:600px){
+  .controls{
+    flex-direction:column;
+    align-items:stretch;
+  }
+}
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="controls">
-        <input id="xinput" type="text" placeholder="Enter a number (real or complex, e.g. 3.5 or 1+2j)" aria-label="x value" />
-        <div class="row-btns" style="display:flex;gap:8px">
-          <button id="compute" class="btn">Compute</button>
-          <button id="toggle" class="btn toggle">+1</button>
-        </div>
-      </div><div class="box">
-    <div id="labelGamma" class="label">Euler gamma function:</div>
-    <div id="outGamma" class="out">—</div>
-  </div>
+<div class="wrap">
+<div class="card">
 
-  <div class="box">
-    <div id="labelHad" class="label">Hadamard gamma function:</div>
-    <div id="outHad" class="out">—</div>
-  </div>
-
-  <div class="box">
-    <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
-    <div id="outLus" class="out">—</div>
-  </div>
-
-  <div id="status" class="small">Loading...</div>
-  <pre id="errorBox"></pre>
+<div class="controls">
+  <input id="xinput" type="text" placeholder="" />
+  <button id="compute">Compute</button>
+  <button id="shiftBtn">+1</button>
 </div>
 
-  </div>  <!-- Load Pyodide -->  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>  <script>
-    const computeBtn = document.getElementById('compute');
-    const xinput = document.getElementById('xinput');
-    const status = document.getElementById('status');
+<div id="msg1" class="message"></div>
+<div id="out1" class="message"></div>
 
-    const outGamma = document.getElementById('outGamma');
-    const outHad = document.getElementById('outHad');
-    const outLus = document.getElementById('outLus');
+<div id="msg2" class="message"></div>
+<div id="out2" class="message"></div>
 
-    const labelGamma = document.getElementById('labelGamma');
-    const labelHad = document.getElementById('labelHad');
-    const labelLus = document.getElementById('labelLus');
+<div id="msg3" class="message"></div>
+<div id="out3" class="message"></div>
 
-    const toggleBtn = document.getElementById('toggle');
-    const errorBox = document.getElementById('errorBox');
+</div>
+</div>
 
-    let pyodideReady = false;
-    let shiftOn = false; // false => unshifted (toggle shows +1)
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
-    function showError(text){
-      errorBox.textContent = text;
-      errorBox.style.display = 'block';
-    }
-    function clearError(){
-      errorBox.textContent = '';
-      errorBox.style.display = 'none';
-    }
+<script>
+const computeBtn = document.getElementById('compute');
+const shiftBtn = document.getElementById('shiftBtn');
+const xinput = document.getElementById('xinput');
 
-    function updateLabels(){
-      if(shiftOn){
-        toggleBtn.textContent = '−' + '1';
-        labelGamma.textContent = 'Euler gamma function (argument shifted by +1):';
-        labelHad.textContent = 'Hadamard gamma function (argument shifted by +1):';
-        labelLus.textContent = 'Luschny factorial:';
-      } else {
-        toggleBtn.textContent = '+1';
-        labelGamma.textContent = 'Euler gamma function:';
-        labelHad.textContent = 'Hadamard gamma function:';
-        labelLus.textContent = 'Luschny factorial (argument shifted by −1):';
-      }
-    }
+const msg1 = document.getElementById('msg1');
+const msg2 = document.getElementById('msg2');
+const msg3 = document.getElementById('msg3');
 
-    toggleBtn.addEventListener('click', ()=>{
-      shiftOn = !shiftOn;
-      updateLabels();
-      // recompute after toggle (only if python ready)
-      if(pyodideReady) compute();
-    });
+const out1 = document.getElementById('out1');
+const out2 = document.getElementById('out2');
+const out3 = document.getElementById('out3');
 
-    async function initPyodide(){
-      try{
-        computeBtn.disabled = true;
-        computeBtn.textContent = 'Loading Python…';
-        status.textContent = 'Loading Pyodide...';
-        window.pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
-        status.textContent = 'Installing mpmath...';
-        await pyodide.loadPackage('micropip');
-        await pyodide.runPythonAsync(`import micropip
-await micropip.install('mpmath')`);
-        pyodideReady = true;
-        computeBtn.disabled = false;
-        computeBtn.textContent = 'Compute';
-        status.textContent = 'Ready';
-      } catch(err){
-        console.error('Pyodide init error', err);
-        status.textContent = 'Failed to load Python or packages. See error details below.';
-        showError(String(err) + '
+let pyodideReady = false;
+let shiftMode = false;
 
-Hint: network or CDN may be blocked.');
-        computeBtn.disabled = true;
-        computeBtn.textContent = 'Error';
-      }
-    }
+async function initPyodide(){
+  computeBtn.disabled = true;
+  computeBtn.textContent = "Loading Python…";
+  window.pyodide = await loadPyodide({
+    indexURL:'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'
+  });
+  await pyodide.loadPackage(['mpmath']);
+  computeBtn.disabled = false;
+  computeBtn.textContent = "Compute";
+  pyodideReady = true;
+}
+initPyodide();
 
-    initPyodide();
+shiftBtn.onclick = () => {
+  shiftMode = !shiftMode;
+  shiftBtn.textContent = shiftMode ? "−1" : "+1";
+};
 
-    computeBtn.addEventListener('click', compute);
-    xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
+computeBtn.onclick = compute;
+xinput.addEventListener("keydown", e=>{
+  if(e.key==="Enter") compute();
+});
 
-    async function compute(){
-      clearError();
-      if(!pyodideReady){
-        status.textContent = 'Python not ready';
-        return;
-      }
-      const raw = xinput.value.trim();
-      if(raw === ''){
-        status.textContent = 'Enter a numeric input first.';
-        outGamma.textContent = '—';
-        outHad.textContent = '—';
-        outLus.textContent = '—';
-        return;
-      }
+async function compute(){
+  if(!pyodideReady) return;
+  const raw = xinput.value.trim();
 
-      computeBtn.disabled = true;
-      computeBtn.textContent = 'Computing…';
-      status.textContent = 'Computing...';
+  computeBtn.disabled = true;
+  computeBtn.textContent = "Computing…";
 
-      const code = `
-# Adapted compute routine taken from the working 'Factorial family' example
-from mpmath import mp, mpf, mpc, sin, pi, nstr, gamma, digamma
-import traceback
-mp.mp.dps = 250
+  try{
+    pyodide.globals.set("x_str", raw);
+    pyodide.globals.set("shift_flag", shiftMode);
 
-# robust string formatting helpers (adapted)
-def format_complex(z, integer_input=False, keep_imag=False):
+    const result = await pyodide.runPythonAsync(`
+from mpmath import mp, gamma, digamma, sin, pi, mpc
+
+mp.dps = 250
+
+def format_val(v):
+    if mp.isinf(v) or mp.isnan(v):
+        return "∞̃"
+    return mp.nstr(v, 15)
+
+def safe_gamma(z):
     try:
-        if mp.isinf(z) or abs(z) > mp.mpf('1e300'):
-            return '∞̃'
-        re = mp.re(z)
-        im = mp.im(z)
-        if integer_input and not keep_imag:
-            im = mp.mpf('0')
-        re_s = nstr(re, 40)
-        im_s = nstr(im, 40)
-        def norm(s):
-            if 'e' in s or 'E' in s:
-                return s
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
-                if s == '-0':
-                    return '0'
-            return s
-        re_s = norm(re_s)
-        im_abs_s = norm(im_s.lstrip('-'))
-        if mp.sign(im) == 0:
-            return re_s
-        if mp.sign(re) == 0:
-            sign = '-' if mp.sign(im) < 0 else ''
-            return f"{sign}{im_abs_s}i"
-        sign = ' + ' if mp.sign(im) >= 0 else ' - '
-        return f"{re_s}{sign}{im_abs_s}i"
-    except Exception:
-        return 'Error'
+        g = gamma(z)
+        if mp.isinf(g) or mp.isnan(g):
+            return None
+        return g
+    except:
+        return None
 
-def approximate_if_needed(s):
-    try:
-        if 'i' in s or s=='∞̃':
-            return s
-        num = mp.mpf(s)
-        if num == 0:
-            return '0'
-        if (mp.mpf('1e-10') < abs(num) < mp.mpf('1e30')):
-            fixed = nstr(num, 40)
-            if 'e' in fixed or 'E' in fixed:
-                with mp.workdps(40):
-                    fixed = nstr(num, 40)
-            if '.' in fixed:
-                fixed = fixed.rstrip('0').rstrip('.')
-            if fixed in ('-0', '+0'):
-                return '0'
-            return fixed
-        else:
-            sci = nstr(num, 30, min_fixed=0)
-            return f'approximately {sci}'
-    except Exception:
-        return s
-
-# parse input allowing complex numbers
 try:
-    x = mpc(${JSON.stringify(raw)})
-except Exception as e:
-    result = {'error': 'Invalid input: ' + str(e) + '
-' + traceback.format_exc()}
+    x = mpc(x_str)
+except:
+    result = None
 else:
-    try:
-        is_integer_input = (mp.im(x) == 0 and mp.re(x) == int(mp.re(x)))
-        s = ${shiftOn ? 'True' : 'False'}
+    if shift_flag:
+        x1 = x + 1
 
-        if s:
-            # shifted-by-+1 mode
-            g = None
-            try:
-                g = gamma(x + 1)
-            except Exception:
-                g = None
-            gamma_out = '∞̃' if g is None or not mp.isfinite(g) else approximate_if_needed(format_complex(g, integer_input=False))
+        g1 = safe_gamma(x1)
+        h1 = None
+        l1 = None
 
-            den = None
+        if g1 is not None:
             try:
-                den = gamma(1 - (x + 1))
-            except Exception:
-                den = None
-            try:
-                if den is None or not mp.isfinite(den):
-                    had_out = '∞̃'
-                else:
-                    had = (digamma(1 - (x + 1)/2) - digamma((1 - (x + 1))/2)) / (2 * den)
-                    had_out = approximate_if_needed(format_complex(had))
-            except Exception:
-                had_out = '∞̃'
+                h1 = (digamma(1 - x1/2) - digamma((1 - x1)/2)) / (2 * gamma(1 - x1))
+            except:
+                pass
 
-            # Luschny for shifted-on (+1) (no -1 shift)
             try:
-                if mp.almosteq(x, 0):
-                    lus_out = '1'
-                else:
-                    if g is None or not mp.isfinite(g):
-                        lus_out = '∞̃'
-                    else:
-                        lusval = g * (1 - sin(pi * x) / (pi * x)) * (x/2 * (digamma((x + 1)/2) - digamma(x/2)) - mp.mpf('1')/2)
-                        lus_out = approximate_if_needed(format_complex(lusval))
-            except Exception:
-                lus_out = '∞̃'
-        else:
-            # unshifted mode
-            g = None
-            try:
-                g = gamma(x)
-            except Exception:
-                g = None
-            gamma_out = '∞̃' if g is None or not mp.isfinite(g) else approximate_if_needed(format_complex(g, integer_input=False))
+                l1 = gamma(x1) * (1 - sin(pi*x)/(pi*x)) * (x/2 * (digamma((x+1)/2) - digamma(x/2)) - mp.mpf('1')/2)
+            except:
+                pass
 
-            den = None
-            try:
-                den = gamma(1 - x)
-            except Exception:
-                den = None
-            try:
-                if den is None or not mp.isfinite(den):
-                    had_out = '∞̃'
-                else:
-                    had = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * den)
-                    had_out = approximate_if_needed(format_complex(had))
-            except Exception:
-                had_out = '∞̃'
+        result = (
+            "Euler gamma function (argument shifted by +1):",
+            format_val(g1) if g1 else "∞̃",
+            "Hadamard gamma function (argument shifted by +1):",
+            format_val(h1) if h1 else "∞̃",
+            "Luschny factorial:",
+            format_val(l1) if l1 else "∞̃"
+        )
 
-            y = x - 1
-            try:
-                if mp.almosteq(y, 0):
-                    lus_out = '1'
-                else:
-                    if g is None or not mp.isfinite(g):
-                        lus_out = '∞̃'
-                    else:
-                        lusval = g * (1 - sin(pi * y) / (pi * y)) * (y/2 * (digamma((y + 1)/2) - digamma(y/2)) - mp.mpf('1')/2)
-                        lus_out = approximate_if_needed(format_complex(lusval))
-            except Exception:
-                lus_out = '∞̃'
+    else:
+        xm1 = x - 1
 
-        result = {'gamma': gamma_out, 'hadamard': had_out, 'luschny': lus_out}
-    except Exception as e:
-        result = {'error': 'Computation failed: ' + str(e) + '
-' + traceback.format_exc()}
+        g1 = safe_gamma(x)
+        h1 = None
+        l1 = None
+
+        if g1 is not None:
+            try:
+                h1 = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * gamma(1 - x))
+            except:
+                pass
+
+            try:
+                l1 = gamma(xm1 + 1) * (1 - sin(pi*xm1)/(pi*xm1)) * (xm1/2 * (digamma((xm1+1)/2) - digamma(xm1/2)) - mp.mpf('1')/2)
+            except:
+                pass
+
+        result = (
+            "Euler gamma function:",
+            format_val(g1) if g1 else "∞̃",
+            "Hadamard gamma function:",
+            format_val(h1) if h1 else "∞̃",
+            "Luschny factorial (argument shifted by −1):",
+            format_val(l1) if l1 else "∞̃"
+        )
 
 result
-`;
+`);
 
-      try{
-        const pyResult = await pyodide.runPythonAsync(code);
-        // pyResult should be a dict-like PyProxy; convert to JS object
-        const jsResult = pyResult.toJs ? pyResult.toJs() : pyResult;
+    if(!result){
+      showError();
+    }else{
+      msg1.textContent = result[0];
+      out1.textContent = result[1];
+      msg2.textContent = result[2];
+      out2.textContent = result[3];
+      msg3.textContent = result[4];
+      out3.textContent = result[5];
 
-        if(jsResult.error){
-          status.textContent = 'Error during computation (see details below)';
-          showError(jsResult.error);
-          outGamma.textContent = 'Error';
-          outHad.textContent = 'Error';
-          outLus.textContent = 'Error';
-        } else {
-          outGamma.textContent = jsResult.gamma;
-          outHad.textContent = jsResult.hadamard;
-          outLus.textContent = jsResult.luschny;
-          status.textContent = 'Done';
-        }
-
-        try { pyResult.destroy && pyResult.destroy(); } catch(e){}
-      } catch(err){
-        // If runPythonAsync itself throws (e.g. Pyodide internal error), surface it to the page for troubleshooting
-        console.error('Computation error', err);
-        status.textContent = 'Error during computation (see details below)';
-        let text = String(err);
-        if(err && err.message) text += '
-' + err.message;
-        if(err && err.stack) text += '
-' + err.stack;
-        text += '
-
-If this repeats, your environment may be blocking Pyodide resources.';
-        showError(text);
-        outGamma.textContent = 'Error';
-        outHad.textContent = 'Error';
-        outLus.textContent = 'Error';
-      } finally{
-        computeBtn.disabled = false;
-        computeBtn.textContent = 'Compute';
-      }
+      msg1.style.display = out1.style.display =
+      msg2.style.display = out2.style.display =
+      msg3.style.display = out3.style.display = "block";
     }
-  </script></body>
+
+  }catch(e){
+    showError();
+  }finally{
+    computeBtn.disabled = false;
+    computeBtn.textContent = "Compute";
+    try{ pyodide.globals.del("x_str"); }catch{}
+  }
+}
+
+function showError(){
+  msg1.textContent = "Error";
+  msg1.style.display = "block";
+}
+</script>
+</body>
 </html>
