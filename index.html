@@ -1,262 +1,375 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Gamma Function Calculator</title>
-
-<style>
-html,body{
-  height:100%;
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-}
-.wrap{
-  min-height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#0f172a;
-  color:#e6eef8;
-}
-.card{
-  background:#0b1220;
-  padding:28px;
-  border-radius:12px;
-  box-shadow:0 8px 30px rgba(2,6,23,.6);
-  width:820px;
-  max-width:98%;
-}
-.controls{
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-input[type=text]{
-  flex:1;
-  padding:10px 12px;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,.06);
-  background:rgba(255,255,255,.02);
-  color:inherit;
-  font-size:16px;
-}
-button{
-  padding:10px 14px;
-  border-radius:8px;
-  border:none;
-  background:#2563eb;
-  color:white;
-  font-weight:600;
-  cursor:pointer;
-  min-width:100px;
-}
-button:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-}
-.message{
-  margin-top:18px;
-  padding:14px;
-  border-radius:8px;
-  background:rgba(255,255,255,.02);
-  display:none;
-  font-family:monospace;
-  word-break:break-word;
-  white-space:pre-wrap;
-}
-@media (max-width:600px){
-  .controls{
-    flex-direction:column;
-    align-items:stretch;
-  }
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gamma / Hadamard / Luschny (Pyodide)</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #0f172a;
+      color: #e6eef8;
+    }
+    .wrap {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #0b1220;
+      padding: 28px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+      width: 820px;
+      max-width: 100%;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    input[type=text] {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+      color: inherit;
+      font-size: 16px;
+      outline: none;
+    }
+    input[type=text]:focus {
+      border-color: #3b82f6;
+    }
+    .btn {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.1s;
+    }
+    .btn:hover {
+      background: #1d4ed8;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .toggle {
+      min-width: 70px;
+    }
+    .box {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .label {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #b0c4de;
+    }
+    .out {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #1e293b;
+      padding: 12px 14px;
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+    }
+    .small {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-top: 16px;
+      text-align: right;
+    }
+    .error-box {
+      background: #2d1a1a;
+      border-left: 3px solid #ef4444;
+      color: #fecaca;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-top: 16px;
+      display: none;
+    }
+    /* mobile layout: buttons below input */
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .controls .row-btns {
+        display: flex;
+        gap: 8px;
+      }
+      .controls .row-btns button {
+        flex: 1;
+      }
+    }
+  </style>
 </head>
-
 <body>
 <div class="wrap">
-<div class="card">
+  <div class="card">
+    <!-- input + buttons row -->
+    <div class="controls">
+      <input type="text" id="xinput" placeholder="e.g. 2.5, -1, 1+2j" aria-label="Argument x" />
+      <div class="row-btns">
+        <button id="compute" class="btn">Compute</button>
+        <button id="toggle" class="btn toggle">+1</button>
+      </div>
+    </div>
 
-<div class="controls">
-  <input id="xinput" type="text" placeholder="" />
-  <button id="compute">Compute</button>
-  <button id="shiftBtn">+1</button>
+    <!-- result panels -->
+    <div class="box">
+      <div id="labelGamma" class="label">Euler gamma function:</div>
+      <div id="outGamma" class="out">—</div>
+    </div>
+    <div class="box">
+      <div id="labelHad" class="label">Hadamard gamma function:</div>
+      <div id="outHad" class="out">—</div>
+    </div>
+    <div class="box">
+      <div id="labelLus" class="label">Luschny factorial (argument shifted by −1):</div>
+      <div id="outLus" class="out">—</div>
+    </div>
+
+    <div id="status" class="small">⏳ loading Python ...</div>
+    <div id="errorBox" class="error-box"></div>
+  </div>
 </div>
 
-<div id="msg1" class="message"></div>
-<div id="out1" class="message"></div>
-
-<div id="msg2" class="message"></div>
-<div id="out2" class="message"></div>
-
-<div id="msg3" class="message"></div>
-<div id="out3" class="message"></div>
-
-</div>
-</div>
-
+<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-
 <script>
-const computeBtn = document.getElementById('compute');
-const shiftBtn = document.getElementById('shiftBtn');
-const xinput = document.getElementById('xinput');
+  (function() {
+    // DOM elements
+    const computeBtn = document.getElementById('compute');
+    const toggleBtn = document.getElementById('toggle');
+    const xinput = document.getElementById('xinput');
+    const statusDiv = document.getElementById('status');
+    const errorBox = document.getElementById('errorBox');
 
-const msg1 = document.getElementById('msg1');
-const msg2 = document.getElementById('msg2');
-const msg3 = document.getElementById('msg3');
+    const outGamma = document.getElementById('outGamma');
+    const outHad = document.getElementById('outHad');
+    const outLus = document.getElementById('outLus');
 
-const out1 = document.getElementById('out1');
-const out2 = document.getElementById('out2');
-const out3 = document.getElementById('out3');
+    const labelGamma = document.getElementById('labelGamma');
+    const labelHad = document.getElementById('labelHad');
+    const labelLus = document.getElementById('labelLus');
 
-let pyodideReady = false;
-let shiftMode = false;
+    // state
+    let pyodideReady = false;
+    let shiftOn = false;       // false = unshifted (toggle shows "+1")
 
-async function initPyodide(){
-  computeBtn.disabled = true;
-  computeBtn.textContent = "Loading Python…";
-  window.pyodide = await loadPyodide({
-    indexURL:'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'
-  });
-  await pyodide.loadPackage(['mpmath']);
-  computeBtn.disabled = false;
-  computeBtn.textContent = "Compute";
-  pyodideReady = true;
-}
-initPyodide();
-
-shiftBtn.onclick = () => {
-  shiftMode = !shiftMode;
-  shiftBtn.textContent = shiftMode ? "−1" : "+1";
-};
-
-computeBtn.onclick = compute;
-xinput.addEventListener("keydown", e=>{
-  if(e.key==="Enter") compute();
-});
-
-async function compute(){
-  if(!pyodideReady) return;
-  const raw = xinput.value.trim();
-
-  computeBtn.disabled = true;
-  computeBtn.textContent = "Computing…";
-
-  try{
-    pyodide.globals.set("x_str", raw);
-    pyodide.globals.set("shift_flag", shiftMode);
-
-    const result = await pyodide.runPythonAsync(`
-from mpmath import mp, gamma, digamma, sin, pi, mpc
-
-mp.dps = 250
-
-def format_val(v):
-    if mp.isinf(v) or mp.isnan(v):
-        return "∞̃"
-    return mp.nstr(v, 15)
-
-def safe_gamma(z):
-    try:
-        g = gamma(z)
-        if mp.isinf(g) or mp.isnan(g):
-            return None
-        return g
-    except:
-        return None
-
-try:
-    x = mpc(x_str)
-except:
-    result = None
-else:
-    if shift_flag:
-        x1 = x + 1
-
-        g1 = safe_gamma(x1)
-        h1 = None
-        l1 = None
-
-        if g1 is not None:
-            try:
-                h1 = (digamma(1 - x1/2) - digamma((1 - x1)/2)) / (2 * gamma(1 - x1))
-            except:
-                pass
-
-            try:
-                l1 = gamma(x1) * (1 - sin(pi*x)/(pi*x)) * (x/2 * (digamma((x+1)/2) - digamma(x/2)) - mp.mpf('1')/2)
-            except:
-                pass
-
-        result = (
-            "Euler gamma function (argument shifted by +1):",
-            format_val(g1) if g1 else "∞̃",
-            "Hadamard gamma function (argument shifted by +1):",
-            format_val(h1) if h1 else "∞̃",
-            "Luschny factorial:",
-            format_val(l1) if l1 else "∞̃"
-        )
-
-    else:
-        xm1 = x - 1
-
-        g1 = safe_gamma(x)
-        h1 = None
-        l1 = None
-
-        if g1 is not None:
-            try:
-                h1 = (digamma(1 - x/2) - digamma((1 - x)/2)) / (2 * gamma(1 - x))
-            except:
-                pass
-
-            try:
-                l1 = gamma(xm1 + 1) * (1 - sin(pi*xm1)/(pi*xm1)) * (xm1/2 * (digamma((xm1+1)/2) - digamma(xm1/2)) - mp.mpf('1')/2)
-            except:
-                pass
-
-        result = (
-            "Euler gamma function:",
-            format_val(g1) if g1 else "∞̃",
-            "Hadamard gamma function:",
-            format_val(h1) if h1 else "∞̃",
-            "Luschny factorial (argument shifted by −1):",
-            format_val(l1) if l1 else "∞̃"
-        )
-
-result
-`);
-
-    if(!result){
-      showError();
-    }else{
-      msg1.textContent = result[0];
-      out1.textContent = result[1];
-      msg2.textContent = result[2];
-      out2.textContent = result[3];
-      msg3.textContent = result[4];
-      out3.textContent = result[5];
-
-      msg1.style.display = out1.style.display =
-      msg2.style.display = out2.style.display =
-      msg3.style.display = out3.style.display = "block";
+    // helper to show error messages
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.style.display = 'block';
+    }
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.style.display = 'none';
     }
 
-  }catch(e){
-    showError();
-  }finally{
-    computeBtn.disabled = false;
-    computeBtn.textContent = "Compute";
-    try{ pyodide.globals.del("x_str"); }catch{}
-  }
-}
+    // update button text and labels according to shiftOn
+    function updateUILabels() {
+      if (shiftOn) {
+        toggleBtn.textContent = '−1';
+        labelGamma.textContent = 'Euler gamma function (argument shifted by +1):';
+        labelHad.textContent = 'Hadamard gamma function (argument shifted by +1):';
+        labelLus.textContent = 'Luschny factorial:';
+      } else {
+        toggleBtn.textContent = '+1';
+        labelGamma.textContent = 'Euler gamma function:';
+        labelHad.textContent = 'Hadamard gamma function:';
+        labelLus.textContent = 'Luschny factorial (argument shifted by −1):';
+      }
+    }
 
-function showError(){
-  msg1.textContent = "Error";
-  msg1.style.display = "block";
-}
+    // toggle click
+    toggleBtn.addEventListener('click', () => {
+      shiftOn = !shiftOn;
+      updateUILabels();
+      if (pyodideReady && xinput.value.trim() !== '') {
+        compute();   // auto‑recompute after toggle
+      }
+    });
+
+    // Pyodide initialisation
+    async function initPyodide() {
+      try {
+        computeBtn.disabled = true;
+        computeBtn.textContent = 'Loading …';
+        statusDiv.textContent = '📦 loading Pyodide ...';
+        window.pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
+
+        statusDiv.textContent = '📦 installing mpmath (high precision) ...';
+        await pyodide.loadPackage('micropip');
+        const micropip = pyodide.pyimport('micropip');
+        await micropip.install('mpmath');
+
+        pyodideReady = true;
+        computeBtn.disabled = false;
+        computeBtn.textContent = 'Compute';
+        statusDiv.textContent = '✅ ready — enter a value';
+        clearError();
+      } catch (err) {
+        console.error('Pyodide init failed:', err);
+        statusDiv.textContent = '❌ failed to load Python environment';
+        showError(`Initialisation error:\n${err}\n\nPlease check your network or CDN.`);
+        computeBtn.disabled = true;
+        computeBtn.textContent = 'Error';
+      }
+    }
+    initPyodide();
+
+    // compute on click / enter
+    computeBtn.addEventListener('click', compute);
+    xinput.addEventListener('keydown', (e) => { if (e.key === 'Enter') compute(); });
+
+    // core computation
+    async function compute() {
+      clearError();
+      if (!pyodideReady) {
+        statusDiv.textContent = '⏳ Python not ready, please wait.';
+        return;
+      }
+
+      const raw = xinput.value.trim();
+      if (raw === '') {
+        outGamma.textContent = '—';
+        outHad.textContent = '—';
+        outLus.textContent = '—';
+        statusDiv.textContent = '✏️ enter a number (real or complex)';
+        return;
+      }
+
+      // disable button during computation
+      computeBtn.disabled = true;
+      computeBtn.textContent = 'Computing…';
+      statusDiv.textContent = '⚙️ computing ...';
+
+      try {
+        // pass the raw string and shift flag to Python
+        pyodide.globals.set('x_str', raw);
+        // shift as integer 0/1 (easier than boolean)
+        const shiftInt = shiftOn ? 1 : 0;
+
+        // Python code with mp.dps = 250, 15‑digit output, pole detection
+        const code = `
+from mpmath import mp, gamma, psi, sin, pi, nstr, inf, isinf, isnan, mpc, mpmathify
+
+mp.dps = 250   # internal precision
+
+def format_value(z):
+    """return a string with 15 significant digits; poles → ∞̃"""
+    # pole / undefined / infinite → tilde infinity
+    if isinf(z) or isnan(z):
+        return "∞̃"
+    # complex with zero imaginary part -> real
+    if isinstance(z, mpc):
+        re = mp.re(z)
+        im = mp.im(z)
+        if im == 0:
+            return nstr(re, 15)
+        # format a ± b*j
+        re_str = nstr(re, 15)
+        im_str = nstr(abs(im), 15)
+        sign = '+' if im >= 0 else '-'
+        return f"{re_str} {sign} {im_str}j"
+    else:
+        return nstr(z, 15)
+
+try:
+    x = mpmathify(x_str)
+except Exception:
+    # parsing error
+    euler = had = lus = "❌ invalid input"
+else:
+    try:
+        if shift == 0:
+            # ----- unshifted (argument = x) -----
+            euler_val = gamma(x)
+
+            # Hadamard: (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
+            had_val = (psi(1 - x/2) - psi((1 - x)/2)) / (2 * gamma(1 - x))
+
+            # Luschny factorial (shift -1 already in formula)
+            # gamma(x) * (1 - sin(pi*(x-1))/(pi*(x-1))) * ((x-1)/2 * (psi(x/2)-psi((x-1)/2)) - 0.5)
+            term_sin = 1 - sin(pi*(x-1)) / (pi*(x-1))
+            term_digamma = ((x-1)/2) * (psi(x/2) - psi((x-1)/2)) - 0.5
+            lus_val = gamma(x) * term_sin * term_digamma
+
+        else:
+            # ----- shifted by +1 (argument = x+1) -----
+            euler_val = gamma(x + 1)
+
+            # Hadamard shifted
+            had_val = (psi(1 - (x+1)/2) - psi((1 - (x+1))/2)) / (2 * gamma(1 - (x+1)))
+
+            # Luschny factorial shifted
+            # gamma(x+1) * (1 - sin(pi*x)/(pi*x)) * (x/2 * (psi((x+1)/2)-psi(x/2)) - 0.5)
+            term_sin_shift = 1 - sin(pi*x) / (pi*x)
+            term_digamma_shift = (x/2) * (psi((x+1)/2) - psi(x/2)) - 0.5
+            lus_val = gamma(x + 1) * term_sin_shift * term_digamma_shift
+
+        # format results, replace infinities/nans with ∞̃
+        euler = format_value(euler_val)
+        had = format_value(had_val)
+        lus = format_value(lus_val)
+
+    except Exception as e:
+        # any runtime error (e.g. division by zero, pole) → ∞̃
+        euler = had = lus = "∞̃"
+
+# return three strings
+(euler, had, lus)
+        `;
+
+        // inject shift value into Python code
+        const fullCode = code.replace('shift == 0', `shift == ${shiftInt}`).replace('shift == 1', `shift == ${shiftInt}`);
+
+        const result = await pyodide.runPythonAsync(fullCode);
+        // result is a Python tuple of three strings
+        const [gammaStr, hadStr, lusStr] = result.toJs();
+
+        outGamma.textContent = gammaStr;
+        outHad.textContent = hadStr;
+        outLus.textContent = lusStr;
+
+        statusDiv.textContent = '✅ done';
+      } catch (err) {
+        console.error(err);
+        outGamma.textContent = '—';
+        outHad.textContent = '—';
+        outLus.textContent = '—';
+        statusDiv.textContent = '❌ computation error';
+        showError(`Python error:\n${err.message || err}`);
+      } finally {
+        computeBtn.disabled = false;
+        computeBtn.textContent = 'Compute';
+        // clean up global to avoid memory leaks
+        try { pyodide.globals.delete('x_str'); } catch(e) {}
+      }
+    }
+
+    // set initial labels
+    updateUILabels();
+  })();
 </script>
 </body>
 </html>
