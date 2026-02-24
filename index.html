@@ -18,7 +18,8 @@
     .label{font-weight:700;margin-bottom:6px}
     .out{font-family:monospace;white-space:pre-wrap}
     .small{font-size:13px;color:rgba(230,238,248,.7);margin-top:8px}
-    .error{color:#ffb4b4}@media (max-width:600px){
+    .error{color:#ffb4b4}
+    pre#errorBox{background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px}@media (max-width:600px){
   .controls{flex-direction:column;align-items:stretch}
   .controls .row-btns{display:flex;gap:8px}
   .controls .row-btns button{flex:1}
@@ -51,6 +52,7 @@
   </div>
 
   <div id="status" class="small">Loading...</div>
+  <pre id="errorBox"></pre>
 </div>
 
   </div>  <!-- Load Pyodide -->  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>  <script>
@@ -67,9 +69,19 @@
     const labelLus = document.getElementById('labelLus');
 
     const toggleBtn = document.getElementById('toggle');
+    const errorBox = document.getElementById('errorBox');
 
     let pyodideReady = false;
     let shiftOn = false; // false => unshifted (toggle shows +1)
+
+    function showError(text){
+      errorBox.textContent = text;
+      errorBox.style.display = 'block';
+    }
+    function clearError(){
+      errorBox.textContent = '';
+      errorBox.style.display = 'none';
+    }
 
     function updateLabels(){
       if(shiftOn){
@@ -108,7 +120,10 @@ await micropip.install('mpmath')`);
         status.textContent = 'Ready';
       } catch(err){
         console.error('Pyodide init error', err);
-        status.textContent = 'Failed to load Python or packages. See console for details.';
+        status.textContent = 'Failed to load Python or packages. See error details below.';
+        showError(String(err) + '
+
+Hint: network or CDN may be blocked.');
         computeBtn.disabled = true;
         computeBtn.textContent = 'Error';
       }
@@ -120,6 +135,7 @@ await micropip.install('mpmath')`);
     xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
 
     async function compute(){
+      clearError();
       if(!pyodideReady){
         status.textContent = 'Python not ready';
         return;
@@ -138,12 +154,15 @@ await micropip.install('mpmath')`);
       status.textContent = 'Computing...';
 
       const code = `
-from mpmath import mp, mpf, sin, pi, nstr, gamma as mpm_gamma, digamma as mpm_digamma
+import traceback
+from mpmath import mp, mpf, sin, pi, nstr
 mp.mp.dps = 250
 try:
     x = mp.mpf(${JSON.stringify(raw)})
 except Exception as e:
-    result = {'error': 'Invalid input: ' + str(e)}
+    import traceback
+    result = {'error': 'Invalid input: ' + str(e) + '
+' + traceback.format_exc()}
 else:
     try:
         s = ${shiftOn ? 'True' : 'False'}
@@ -170,7 +189,7 @@ else:
             gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
             den = safe_gamma(1 - (x + 1))
             try:
-                had = (mpm_digamma(1 - (x + 1)/2) - mpm_digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
+                had = (mp.digamma(1 - (x + 1)/2) - mp.digamma((1 - (x + 1))/2)) / (2 * den) if den is not None else None
                 had_out = '∞̃' if had is None else fmt(had)
             except Exception:
                 had_out = '∞̃'
@@ -181,7 +200,7 @@ else:
                     if gamma_val is None:
                         lus_out = '∞̃'
                     else:
-                        lus = gamma_val * (1 - mp.sin(mp.pi * x) / (mp.pi * x)) * (x/2 * (mpm_digamma((x + 1)/2) - mpm_digamma(x/2)) - mp.mpf('1')/2)
+                        lus = gamma_val * (1 - mp.sin(mp.pi * x) / (mp.pi * x)) * (x/2 * (mp.digamma((x + 1)/2) - mp.digamma(x/2)) - mp.mpf('1')/2)
                         lus_out = fmt(lus)
             except Exception:
                 lus_out = '∞̃'
@@ -190,7 +209,7 @@ else:
             gamma_out = '∞̃' if gamma_val is None else fmt(gamma_val)
             den = safe_gamma(1 - x)
             try:
-                had = (mpm_digamma(1 - x/2) - mpm_digamma((1 - x)/2)) / (2 * den) if den is not None else None
+                had = (mp.digamma(1 - x/2) - mp.digamma((1 - x)/2)) / (2 * den) if den is not None else None
                 had_out = '∞̃' if had is None else fmt(had)
             except Exception:
                 had_out = '∞̃'
@@ -202,29 +221,30 @@ else:
                     if gamma_val is None:
                         lus_out = '∞̃'
                     else:
-                        lus = gamma_val * (1 - mp.sin(mp.pi * y) / (mp.pi * y)) * (y/2 * (mpm_digamma((y + 1)/2) - mpm_digamma(y/2)) - mp.mpf('1')/2)
+                        lus = gamma_val * (1 - mp.sin(mp.pi * y) / (mp.pi * y)) * (y/2 * (mp.digamma((y + 1)/2) - mp.digamma(y/2)) - mp.mpf('1')/2)
                         lus_out = fmt(lus)
             except Exception:
                 lus_out = '∞̃'
 
         result = {'gamma': gamma_out, 'hadamard': had_out, 'luschny': lus_out}
     except Exception as e:
-        result = {'error': 'Computation error: ' + str(e)}
+        result = {'error': 'Computation failed: ' + str(e) + '
+' + traceback.format_exc()}
 
 result
 `;
 
       try{
         const pyResult = await pyodide.runPythonAsync(code);
+        // pyResult should be a dict-like PyProxy; convert to JS object
         const jsResult = pyResult.toJs ? pyResult.toJs() : pyResult;
 
         if(jsResult.error){
-          // show error clearly
+          status.textContent = 'Error during computation (see details below)';
+          showError(jsResult.error);
           outGamma.textContent = 'Error';
           outHad.textContent = 'Error';
           outLus.textContent = 'Error';
-          status.textContent = jsResult.error;
-          console.error('Python reported error:', jsResult.error);
         } else {
           outGamma.textContent = jsResult.gamma;
           outHad.textContent = jsResult.hadamard;
@@ -234,8 +254,18 @@ result
 
         try { pyResult.destroy && pyResult.destroy(); } catch(e){}
       } catch(err){
+        // If runPythonAsync itself throws (e.g. Pyodide internal error), surface it to the page for troubleshooting
         console.error('Computation error', err);
-        status.textContent = 'Error during computation (see console)';
+        status.textContent = 'Error during computation (see details below)';
+        let text = String(err);
+        if(err && err.message) text += '
+' + err.message;
+        if(err && err.stack) text += '
+' + err.stack;
+        text += '
+
+If this repeats, your environment may be blocking Pyodide resources.';
+        showError(text);
         outGamma.textContent = 'Error';
         outHad.textContent = 'Error';
         outLus.textContent = 'Error';
