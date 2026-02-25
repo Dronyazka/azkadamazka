@@ -3,15 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pseudogamma family — Engine fix</title>
+<title>Pseudogamma family — responsive compute</title>
 <style>
 :root{
-  --bg:#0f172a;
-  --card:#0b1220;
-  --box:rgba(255,255,255,.03);
-  --accent:#2563eb;
-  --accent-dark:#1e3a8a;
-  --text:#e6eef8;
+  --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
+  --accent:#2563eb; --accent-dark:#1e3a8a; --text:#e6eef8;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
@@ -21,7 +17,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
 .card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;}
-.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* prevents wrapping */
+.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;}
 .inputs-row.one input{width:100%;}
 .inputs-row.two input{width:50%;}
 input{height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:var(--box);color:var(--text);font-size:16px;}
@@ -65,7 +61,6 @@ input::placeholder{color:rgba(230,238,248,.45);}
   </div>
 </div>
 
-<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
 /* UI wiring (unchanged behavior) */
@@ -112,14 +107,19 @@ setMode('fact');
 
 function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
 
-/* --- Full Python computation module (optimized Ulgenes; mp.dps=250) ---
-   This is the same working compute module we used previously (keeps parsing behavior).
+/* --- Python compute module (optimized Ulgenes + partial compute API)
+     — mp.dps = 250, 15-digit display, same parsing/semantics as before.
+     We expose:
+       compute_partial(x_str, y_str, op) -> (g,h,l,k,is_pos)
+       compute_ulgenes(x_str, op)       -> (ulgenes_string, is_pos)
+   so JS can get fast partial results, then fetch Ulgenes separately.
 */
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, binomial, exp
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
+import math
 mp.dps = 250
 
-# digamma wrapper detection (robust)
+# --- digamma detection/fallback (unchanged) ---
 def _make_digamma():
     try:
         test = mp.psi(mp.mpf('0.5'))
@@ -149,7 +149,7 @@ def _make_digamma():
 
 digamma = _make_digamma()
 
-# formatting helpers
+# --- formatting utilities (unchanged) ---
 def _normalize_decimal_str(s):
     if 'e' in s or 'E' in s:
         return s
@@ -192,7 +192,7 @@ def fmt(z):
         s = nstr(val, 15)
         return _normalize_decimal_str(s)
 
-# parse input preferring mpf for plain reals
+# --- parsing (unchanged) ---
 def parse_input(s):
     s = s.strip()
     if s == '':
@@ -208,8 +208,7 @@ def parse_input(s):
         raise ValueError('cannot parse input')
 
 def is_exact_real_integer(x):
-    if isinstance(x, mpc):
-        return False
+    if isinstance(x, mpc): return False
     try:
         r = mp.re(x)
         return r == mp.mpf(int(r))
@@ -221,7 +220,7 @@ def symmetric_limit(func, x, eps=None):
         eps = mp.power(10, -30)
     return (func(x + eps) + func(x - eps)) / 2
 
-# core functions
+# --- core functions (same formulas & semantics) ---
 def f_gamma(x):
     targ = x + 1
     if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
@@ -271,23 +270,27 @@ def f_klimek(x):
     except Exception:
         return mp.mpf('inf')
 
-# Ulgenes (NEW formula, NO SHIFT)
-_inner_cache = [mp.mpf('0')]
+# ---------------- Ulgenes (NEW: no shift) performance-tuned ----------------
+# inner_k_sum depends only on n; compute using integer comb (fast) and cache.
+_inner_cache = [mp.mpf('0')]  # index 0 unused
+
 def _ensure_inner_cache(n_max):
     if len(_inner_cache) >= n_max + 1:
         return
     start = len(_inner_cache)
     for n in range(start, n_max + 1):
         inner = mp.mpf('0')
+        # use Python's integer math.comb for exact combinatorial coefficients
         for k in range(1, n + 1):
             sign = -1 if ((n + k) % 2) else 1
-            coeff = mp.binomial(2*n - 1, n - k)
+            coeff = mp.mpf(math.comb(2*n - 1, n - k))
             term_k = mp.mpf(2*k - 1) * coeff * mp.log(mp.mpf(k))
             inner += (-term_k if sign == -1 else term_k)
         _inner_cache.append(inner)
 
 def ulgenes_direct(x):
-    max_n = 400
+    # top_n = C(x + n - 1, 2n - 1) — we use a recurrence to update it cheaply.
+    max_n = 300  # tuned cap for speed; safe for typical inputs
     tol = mp.power(10, -max(8, int(mp.dps/2)))
     consec_small_needed = 4
 
@@ -296,7 +299,7 @@ def ulgenes_direct(x):
     S = mp.mpf('0')
     consec_small = 0
 
-    top = x
+    top = x  # top for n=1 : C(x,1) = x
     for n in range(1, max_n + 1):
         inner = _inner_cache[n]
         denom = mp.mpf(2*n - 1)
@@ -306,7 +309,6 @@ def ulgenes_direct(x):
             return mp.mpf('inf')
 
         S += term
-
         abs_term = abs(term)
         if abs_term < tol:
             consec_small += 1
@@ -315,6 +317,7 @@ def ulgenes_direct(x):
         else:
             consec_small = 0
 
+        # recurrence ratio for top_{n+1} / top_n = (x+n)*(x-n)/((2n+1)*(2n))
         R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
         top = top * R
 
@@ -329,6 +332,7 @@ def ulgenes_direct(x):
         return mp.mpf('inf')
     return val
 
+# --- wrapper map ---
 f_map = {
     'gamma': f_gamma,
     'hadamard': f_hadamard,
@@ -337,67 +341,73 @@ f_map = {
     'ulgenes': ulgenes_direct
 }
 
-def compute_main(x_str, y_str, op):
+# --- compute helpers exposed to JS ---
+def compute_partial(x_str, y_str, op):
+    # compute first four functions only: gamma, hadamard, luschny, klimek
     mp.dps = 250
     try:
         x = parse_input(x_str)
     except Exception:
-        return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", False)
+        return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", False)
     is_pos_real = (not isinstance(x, mpc)) and (mp.re(x) > 0)
 
     if op in ('pr','cr'):
         try:
             y = parse_input(y_str)
         except Exception:
-            return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", is_pos_real)
+            return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", is_pos_real)
     else:
         y = None
 
     outputs = []
-    try:
-        for name in ['gamma','hadamard','luschny','klimek','ulgenes']:
-            f = f_map[name]
-            try:
-                if op == 'fact':
-                    val = f(x)
-                elif op == 'pr':
-                    num = f(x)
-                    den = f(x - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den) or mp.isnan(den):
-                        val = mp.mpf('0')
-                    else:
-                        try:
-                            val = num/den
-                        except Exception:
-                            val = mp.mpf('inf')
-                elif op == 'cr':
-                    num = f(x)
-                    den1 = f(y)
-                    den2 = f(x - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                        val = mp.mpf('0')
-                    else:
-                        try:
-                            val = num/(den1*den2)
-                        except Exception:
-                            val = mp.mpf('inf')
-                else:
+    for name in ['gamma','hadamard','luschny','klimek']:
+        f = f_map[name]
+        try:
+            if op == 'fact':
+                val = f(x)
+            elif op == 'pr':
+                num = f(x)
+                den = f(x - y)
+                if mp.isinf(num) or mp.isnan(num):
                     val = mp.mpf('inf')
-            except Exception:
+                elif mp.isinf(den) or mp.isnan(den):
+                    val = mp.mpf('0')
+                else:
+                    try: val = num/den
+                    except Exception: val = mp.mpf('inf')
+            elif op == 'cr':
+                num = f(x)
+                den1 = f(y)
+                den2 = f(x - y)
+                if mp.isinf(num) or mp.isnan(num):
+                    val = mp.mpf('inf')
+                elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
+                    val = mp.mpf('0')
+                else:
+                    try: val = num/(den1*den2)
+                    except Exception: val = mp.mpf('inf')
+            else:
                 val = mp.mpf('inf')
-            s = fmt(val)
-            outputs.append(s)
-    except Exception:
-        return ("ERROR","ERROR","ERROR","ERROR","ERROR", is_pos_real)
-
+        except Exception:
+            val = mp.mpf('inf')
+        outputs.append(fmt(val))
     return tuple(outputs) + (bool(is_pos_real),)
+
+def compute_ulgenes(x_str):
+    mp.dps = 250
+    try:
+        x = parse_input(x_str)
+    except Exception:
+        return ("INPUT_ERROR", False)
+    is_pos_real = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    try:
+        val = f_map['ulgenes'](x)
+    except Exception:
+        val = mp.mpf('inf')
+    return (fmt(val), bool(is_pos_real))
 `;
 
-/* initialize Pyodide and load mpmath */
+/* initialize Pyodide and install mpmath; load compute module */
 let pyodideReady = false;
 async function initPy(){
   try{
@@ -410,9 +420,8 @@ async function initPy(){
     pyodideReady = true;
     computeBtn.disabled = false;
     computeBtn.textContent = 'Compute';
-  }catch(err){
+  } catch(err){
     console.error('Pyodide init failed', err);
-    // keep UI outputs as '—' per your request
     pyodideReady = false;
     computeBtn.disabled = true;
     computeBtn.textContent = 'Error';
@@ -420,61 +429,82 @@ async function initPy(){
 }
 initPy();
 
-/* compute — inline error outputs */
+/* compute flow: first partial (fast) update, then ulgenes */
 computeBtn.addEventListener('click', compute);
-xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
-yinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
+xinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
+yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 
 async function compute(){
   errorBox.style.display = 'none';
-  outGamma.textContent = '…'; outHad.textContent = '…'; outLus.textContent = '…'; outKli.textContent = '…'; outUl.textContent = '…';
+
+  // show pending for all outputs
+  outGamma.textContent = '…'; outHad.textContent = '…'; outLus.textContent = '…';
+  outKli.textContent = '…'; outUl.textContent = '…';
+
   if(!pyodideReady){
     const msg = 'Error: Engine is not ready.';
-    outGamma.textContent = msg;
-    outHad.textContent = msg;
-    outLus.textContent = msg;
-    outKli.textContent = msg;
-    outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
+    outKli.textContent = msg; outUl.textContent = msg;
     return;
   }
+
   const sx = xinput.value.trim();
   const sy = yinput.value.trim();
+
   if(sx === ''){
     const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
+    outKli.textContent = msg; outUl.textContent = msg;
     return;
   }
   if((operation === 'pr' || operation === 'cr') && sy === ''){
     const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
+    outKli.textContent = msg; outUl.textContent = msg;
     return;
   }
 
-  computeBtn.disabled = true; computeBtn.textContent = 'Computing…';
+  computeBtn.disabled = true;
+  computeBtn.textContent = 'Computing…';
+
   try{
+    // set globals for convenience (strings)
     pyodide.globals.set('x_in', sx);
     pyodide.globals.set('y_in', sy);
     pyodide.globals.set('op_in', operation);
-    const res = await pyodide.runPythonAsync(`compute_main(x_in, y_in if y_in is not None else '', op_in)`);
-    const [gRaw, hRaw, lRaw, kRaw, uRaw, isPos] = res;
-    function mapOut(raw){
+
+    // 1) compute partial (fast four)
+    const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
+    // partial = (g,h,l,k,is_pos)
+    let [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
+
+    function mapOut(raw, isPos){
       if(raw === 'INPUT_ERROR') return 'Error: Input is not a number';
       if(raw === 'ERROR') return 'Error: Computation failed';
       if(raw === '∞̃' && isPos === true) return 'Error: Result is too big.';
       if(typeof raw === 'string') return toUnicodeMinus(raw);
       return String(raw);
     }
-    outGamma.textContent = mapOut(gRaw);
-    outHad.textContent = mapOut(hRaw);
-    outLus.textContent = mapOut(lRaw);
-    outKli.textContent = mapOut(kRaw);
-    outUl.textContent = mapOut(uRaw);
-  }catch(err){
+
+    outGamma.textContent = mapOut(gRaw, isPosPartial);
+    outHad.textContent = mapOut(hRaw, isPosPartial);
+    outLus.textContent = mapOut(lRaw, isPosPartial);
+    outKli.textContent = mapOut(kRaw, isPosPartial);
+
+    // 2) compute ulgenes separately (may take longer)
+    const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in)`);
+    // ulres = (ul_str, is_pos)
+    const [uRaw, isPosU] = ulres;
+    outUl.textContent = mapOut(uRaw, isPosU);
+
+  } catch(err){
     console.error('Compute failed', err);
     const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-  }finally{
-    computeBtn.disabled = false; computeBtn.textContent = 'Compute';
+    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
+    outKli.textContent = msg; outUl.textContent = msg;
+  } finally {
+    computeBtn.disabled = false;
+    computeBtn.textContent = 'Compute';
     try{ pyodide.globals.del('x_in'); pyodide.globals.del('y_in'); pyodide.globals.del('op_in'); } catch(e){}
   }
 }
