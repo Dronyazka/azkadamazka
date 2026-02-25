@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pseudogamma family — fixes for Luschny & Klimek</title>
-
+<title>Pseudogamma family — Luschny & Klimek fix</title>
 <style>
 :root{
   --bg:#0f172a;
@@ -14,166 +13,30 @@
   --accent-dark:#1e3a8a;
   --text:#e6eef8;
 }
-
 *{box-sizing:border-box}
-
-html,body{
-  margin:0;
-  height:100%;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
-
-.page{
-  min-height:100%;
-  padding:32px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:14px;
-  background:var(--bg);
-}
-
-/* ─── OPERATION CARD ───────────────────────────── */
-
-.op-card{
-  width:100%;
-  max-width:900px;
-  background:var(--card);
-  padding:12px;
-  border-radius:12px;
-  display:flex;
-  justify-content:center;
-  box-shadow:0 8px 30px rgba(2,6,23,.6);
-}
-
-.opgroup{
-  display:flex;
-  gap:8px;
-}
-
-.opgroup button{
-  background:var(--accent);
-  border:none;
-  color:white;
-  padding:10px 16px;
-  font-weight:700;
-  border-radius:8px;
-  cursor:pointer;
-}
-
-.opgroup button.active{
-  background:var(--accent-dark);
-}
-
-/* ─── MAIN CARD ────────────────────────────────── */
-
-.card{
-  width:100%;
-  max-width:900px;
-  background:var(--card);
-  padding:18px;
-  border-radius:12px;
-  box-shadow:0 8px 30px rgba(2,6,23,.6);
-}
-
-/* ─── INPUT ROW ────────────────────────────────── */
-
-.inputs-row{
-  display:flex;
-  gap:10px;
-  width:100%;
-  flex-wrap:nowrap;            /* CRITICAL */
-}
-
-.inputs-row.one input{
-  width:100%;
-}
-
-.inputs-row.two input{
-  width:50%;
-}
-
-input{
-  height:44px;
-  padding:10px 12px;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,.08);
-  background:var(--box);
-  color:var(--text);
-  font-size:16px;
-  min-width:0; /* allow proper shrinking without wrapping */
-}
-
-input::placeholder{
-  color:rgba(230,238,248,.45);
-}
-
-/* ─── BUTTON ───────────────────────────────────── */
-
-.compute{
-  margin-top:12px;
-  display:flex;
-  justify-content:center;
-}
-
-.compute button{
-  padding:10px 18px;
-  background:var(--accent);
-  color:white;
-  border:none;
-  border-radius:8px;
-  font-weight:700;
-  cursor:pointer;
-}
-
-/* ─── OUTPUT BOXES ─────────────────────────────── */
-
-.box{
-  margin-top:14px;
-  padding:12px;
-  border-radius:8px;
-  background:var(--box);
-}
-
-.label{
-  font-weight:700;
-  margin-bottom:6px;
-}
-
-.out{
-  font-family:monospace;
-  white-space:pre-wrap;
-}
-
-/* ─── ERROR (only for developer console if needed) ─ */
-
-#errorBox{
-  display:none;
-  margin-top:12px;
-  background:#2b3440;
-  padding:10px;
-  border-radius:8px;
-  color:#ffdede;
-}
-
-/* ─── MOBILE FALLBACK ──────────────────────────── */
-
-@media(max-width:700px){
-  .inputs-row{
-    flex-direction:column;
-  }
-  .inputs-row.two input{
-    width:100%;
-  }
-}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+.page{min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg);}
+.op-card{width:100%;max-width:900px;background:var(--card);padding:12px;border-radius:12px;display:flex;justify-content:center;box-shadow:0 8px 30px rgba(2,6,23,.6);}
+.opgroup{display:flex;gap:8px}
+.opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer}
+.opgroup button.active{background:var(--accent-dark)}
+.card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.6);}
+.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap}
+.inputs-row.one input{width:100%}
+.inputs-row.two input{width:50%}
+input{height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:var(--box);color:var(--text);font-size:16px;min-width:0}
+input::placeholder{color:rgba(230,238,248,.45)}
+.compute{margin-top:12px;display:flex;justify-content:center}
+.compute button{padding:10px 18px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+.box{margin-top:14px;padding:12px;border-radius:8px;background:var(--box)}
+.label{font-weight:700;margin-bottom:6px}
+.out{font-family:monospace;white-space:pre-wrap}
+#errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede}
+@media(max-width:700px){.inputs-row{flex-direction:column}.inputs-row.two input{width:100%}}
 </style>
 </head>
-
 <body>
 <div class="page">
-
   <div class="op-card">
     <div class="opgroup">
       <button id="btnFact" class="active">n!</button>
@@ -183,7 +46,6 @@ input::placeholder{
   </div>
 
   <div class="card">
-
     <div id="inputsRow" class="inputs-row one">
       <input id="xinput" placeholder="x">
       <input id="yinput" placeholder="y">
@@ -200,66 +62,47 @@ input::placeholder{
     <div class="box"><div class="label">Ulgenes lambda (shifted):</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
-
   </div>
 </div>
 
 <script>
-/* ====== UI: inputs-row control (keeps your working code) ====== */
+/* UI: inputs-row control (keeps working behavior) */
 const btnFact = document.getElementById('btnFact');
 const btnPr   = document.getElementById('btnPr');
 const btnCr   = document.getElementById('btnCr');
-
 const inputsRow = document.getElementById('inputsRow');
 const yinput = document.getElementById('yinput');
-
 function setMode(mode){
   btnFact.classList.toggle('active', mode==='fact');
   btnPr.classList.toggle('active', mode==='pr');
   btnCr.classList.toggle('active', mode==='cr');
-
-  if(mode==='fact'){
-    inputsRow.className = 'inputs-row one';
-    yinput.style.display = 'none';
-  } else {
-    inputsRow.className = 'inputs-row two';
-    yinput.style.display = 'block';
-  }
+  if(mode==='fact'){ inputsRow.className = 'inputs-row one'; yinput.style.display = 'none'; }
+  else { inputsRow.className = 'inputs-row two'; yinput.style.display = 'block'; }
 }
-
 setMode('fact');
-
 btnFact.onclick = ()=>setMode('fact');
 btnPr.onclick   = ()=>setMode('pr');
 btnCr.onclick   = ()=>setMode('cr');
 </script>
 
 <script>
-/* ====== Compute wiring & robust math core (mpmath via Pyodide) ====== */
-
-/* UI helpers */
+/* Compute wiring & robust math core
+   ONLY changed behavior: safer handling of Luschny & Klimek to avoid returning ∞̃
+   at removable singularities — uses symmetric_limit only when needed.
+*/
 const computeBtn = document.getElementById('compute');
 const xinputEl = document.getElementById('xinput');
-const status = document.getElementById('errorBox'); // hidden/populated only for dev
 const outGamma = document.getElementById('outGamma');
 const outHad = document.getElementById('outHad');
 const outLus = document.getElementById('outLus');
 const outKli = document.getElementById('outKli');
 const outUl = document.getElementById('outUl');
-
-function showDevError(msg){
-  status.textContent = msg;
-  status.style.display = 'block';
-}
-function clearDevError(){
-  status.textContent = '';
-  status.style.display = 'none';
-}
+const devErr = document.getElementById('errorBox');
+function showDevError(msg){ devErr.textContent = msg; devErr.style.display = 'block'; }
+function clearDevError(){ devErr.textContent = ''; devErr.style.display = 'none'; }
 function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
-
 let pyodideReady = false;
 
-/* === the Python compute module (mpmath) - updated Luschny & Klimek with symmetric-limit fallback === */
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, binomial, exp
 mp.dps = 250
@@ -366,14 +209,13 @@ def is_exact_real_integer(x):
         return False
 
 def symmetric_limit(func, x, eps=None):
-    # symmetric average around x; eps chosen relative to precision
+    # choose eps based on current precision if not supplied
     if eps is None:
-        eps = mp.power(10, -30)
+        eps = mp.power(10, -(mp.dps - 10))
     return (func(x + eps) + func(x - eps)) / 2
 
 # ---- core functions ----
 
-# Euler gamma (shifted): Gamma(x+1)
 def f_gamma(x):
     targ = x + 1
     if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
@@ -383,7 +225,6 @@ def f_gamma(x):
     except Exception:
         return mp.mpf('inf')
 
-# Hadamard (shifted)
 def f_hadamard(x):
     X = x + 1
     if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
@@ -393,9 +234,8 @@ def f_hadamard(x):
     except Exception:
         return mp.mpf('inf')
 
-# Luschny L(x) = Gamma(x+1) * (1 - sin(pi x)/(pi x) * ( x/2*(psi((x+1)/2)-psi(x/2)) - 1/2 ))
+# Luschny expression (may produce inf * 0). Evaluate carefully.
 def luschny_expr(x):
-    # returns mp value (may raise)
     g = gamma(x + 1)
     denom = pi * x
     sinc = mp.mpf(1) if denom == 0 else sin(pi * x) / denom
@@ -403,41 +243,53 @@ def luschny_expr(x):
     return g * (1 - sinc * inner)
 
 def f_luschny(x):
-    # If direct eval misbehaves (poles), attempt symmetric limit
+    # If x is at a Gamma pole (x+1 non-positive integer), use symmetric limit.
     try:
         val = luschny_expr(x)
-        # sanity checks
-        if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
-            # try symmetric limit
-            return symmetric_limit(luschny_expr, x)
-        return val
     except Exception:
-        # fallback to symmetric limit (may still raise/return inf)
+        val = mp.mpf('nan')
+    # if direct eval bad, attempt symmetric-limit if at pole or fallback to limit generally
+    if mp.isnan(val) or mp.isinf(val):
+        # if x+1 is a non-positive integer -> symmetric-limit around x is the correct removable-limit approach
+        if (not isinstance(x, mpc)) and is_exact_real_integer(x + 1) and int(mp.re(x + 1)) <= 0:
+            eps = mp.power(10, -(mp.dps - 10))
+            try:
+                return symmetric_limit(luschny_expr, x, eps)
+            except Exception:
+                return mp.mpf('inf')
+        # otherwise try symmetric limit generally (covers numerical instability)
         try:
             return symmetric_limit(luschny_expr, x)
         except Exception:
             return mp.mpf('inf')
+    return val
 
-# Klimek K(A) = Gamma(A) * (1 + sin(2*pi*A)/(2*pi) * digamma(A))
+# Klimek expression
 def klimek_expr(A):
     term = sin(2 * pi * A) / (2 * pi)
     return gamma(A) * (1 + term * digamma(A))
 
 def f_klimek(x):
     A = x + 1
-    # if direct eval hits poles (gamma/digamma), use symmetric limit
     try:
         val = klimek_expr(A)
-        if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
-            return symmetric_limit(klimek_expr, A)
-        return val
     except Exception:
+        val = mp.mpf('nan')
+    if mp.isnan(val) or mp.isinf(val):
+        # if A is a non-positive integer, use symmetric limit around A
+        if (not isinstance(A, mpc)) and is_exact_real_integer(A) and int(mp.re(A)) <= 0:
+            eps = mp.power(10, -(mp.dps - 10))
+            try:
+                return symmetric_limit(klimek_expr, A, eps)
+            except Exception:
+                return mp.mpf('inf')
+        # otherwise try symmetric limit generally
         try:
             return symmetric_limit(klimek_expr, A)
         except Exception:
             return mp.mpf('inf')
+    return val
 
-# Ulgenes lambda (shifted)
 def ulgenes_direct_arg(A):
     max_n = 2000
     tol = mp.power(10, -60)
@@ -480,7 +332,6 @@ def f_ulgenes(x):
     A = x + 1
     return ulgenes_direct_arg(A)
 
-# function map
 f_map = {
     'gamma': f_gamma,
     'hadamard': f_hadamard,
@@ -489,7 +340,6 @@ f_map = {
     'ulgenes': f_ulgenes
 }
 
-# compute_main returns five formatted strings + is_pos_real
 def compute_main(x_str, y_str, op):
     mp.dps = 250
     try:
@@ -542,16 +392,14 @@ def compute_main(x_str, y_str, op):
                     val = mp.mpf('inf')
             except Exception:
                 val = mp.mpf('inf')
-
             s = fmt(val)
             outputs.append(s)
     except Exception:
         return ("ERROR","ERROR","ERROR","ERROR","ERROR", is_pos_real)
 
     return tuple(outputs) + (bool(is_pos_real),)
-`;
+`; // end python module
 
-/* init Pyodide and install mpmath */
 async function initPyodide(){
   try{
     computeBtn.disabled = true;
@@ -577,22 +425,15 @@ await micropip.install('mpmath')`);
 
 initPyodide();
 
-/* ======= compute handler: put errors into output boxes (not global message) ======= */
+/* compute handler: errors are shown in outputs */
 computeBtn.addEventListener('click', compute);
 xinputEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 
 async function compute(){
   clearDevError();
-  // clear outputs initially
-  outGamma.textContent = '—';
-  outHad.textContent = '—';
-  outLus.textContent = '—';
-  outKli.textContent = '—';
-  outUl.textContent = '—';
-
+  outGamma.textContent = '—'; outHad.textContent = '—'; outLus.textContent = '—'; outKli.textContent = '—'; outUl.textContent = '—';
   if(!pyodideReady){
-    // show as outputs
     const msg = 'Error: computation engine not ready.';
     outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
     return;
@@ -600,7 +441,6 @@ async function compute(){
   const op = btnFact.classList.contains('active') ? 'fact' : (btnPr.classList.contains('active') ? 'pr' : 'cr');
   const rawX = document.getElementById('xinput').value.trim();
   const rawY = document.getElementById('yinput').value.trim();
-
   if(rawX === ''){
     const msg = 'Error: Input is not a number';
     outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
@@ -624,7 +464,6 @@ compute_main(x_in, y_in if y_in is not None else '', op_in)
 `);
     const [gRaw, hRaw, lRaw, kRaw, uRaw, isPos] = res;
 
-    // parser-level errors -> show in outputs
     if(gRaw === 'INPUT_ERROR' || hRaw === 'INPUT_ERROR'){
       const msg = 'Error: Input is not a number';
       outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
@@ -632,7 +471,6 @@ compute_main(x_in, y_in if y_in is not None else '', op_in)
       const msg = 'Error: Computation failed';
       outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
     } else {
-      // map each output individually (∞̃ for positive x -> "Error: Result is too big.")
       function mapOutput(rawOut){
         if(rawOut === 'INPUT_ERROR') return 'Error: Input is not a number';
         if(rawOut === 'ERROR') return 'Error: Computation failed';
@@ -657,6 +495,5 @@ compute_main(x_in, y_in if y_in is not None else '', op_in)
   }
 }
 </script>
-
 </body>
 </html>
