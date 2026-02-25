@@ -152,19 +152,43 @@ def _fmt_sci(z):
     s = mp.nstr(z, 15, min_fixed=0)
     return s
 
+def _sci_to_fixed(s):
+    t = s.strip()
+    if 'e' not in t and 'E' not in t:
+        return t
+    sign = ''
+    if t.startswith(('+', '-')):
+        sign = '-' if t[0] == '-' else ''
+        t = t[1:]
+    mant, exp_s = t.lower().split('e', 1)
+    exp = int(exp_s)
+    if '.' in mant:
+        a, b = mant.split('.', 1)
+    else:
+        a, b = mant, ''
+    digits = (a + b).lstrip('0')
+    if digits == '':
+        return '0'
+    dec_pos = len(a) + exp
+    if dec_pos <= 0:
+        out = '0.' + ('0' * (-dec_pos)) + digits
+    elif dec_pos >= len(digits):
+        out = digits + ('0' * (dec_pos - len(digits)))
+    else:
+        out = digits[:dec_pos] + '.' + digits[dec_pos:]
+    if sign:
+        out = sign + out
+    return out
+
 def _fmt_fixed(z):
-    # produce a fixed-form string with up to 15 significant digits, no trailing zeros
-    s = mp.nstr(z, 25)  # extra guard digits reduce accidental underflow-to-zero in fixed mode
-    if 'e' in s or 'E' in s:
-        # expand to more digits and then trim - this is a fallback when mp.nstr returned sci
-        s = mp.nstr(z, 50, min_fixed=1)
-    # trim trailing zeros
+    # fixed-form string inside the non-scientific window, trimmed but non-zero
+    s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
+    s = _sci_to_fixed(s)
     if '.' in s:
         s = s.rstrip('0').rstrip('.')
-    if s in ('-0', '+0'):
+    if s in ('', '-0', '+0'):
         return '0'
     return s
-
 def fmt(z):
     # handle inf/overflow
     try:
@@ -189,7 +213,7 @@ def fmt(z):
             # integer check
             try:
                 nearest = int(mp.floor(val + mp.mpf('0.5')))
-                if abs(val - nearest) <= INT_TOL:
+                if abs(val - nearest) <= INT_TOL and abs(val) < mp.power(10, BIG_EXP):
                     return str(int(nearest))
             except Exception:
                 pass
@@ -243,7 +267,7 @@ def fmt(z):
 def parse_input(s):
     s = s.strip()
     if s == '':
-        raise ValueError('empty input')
+        raise ValueError('EMPTY_INPUT')
     if ('i' not in s) and ('j' not in s):
         try:
             return mp.mpf(s)
@@ -252,7 +276,7 @@ def parse_input(s):
     try:
         return mpc(s.replace('i','j'))
     except Exception:
-        raise ValueError('cannot parse input')
+        raise ValueError('NAN_INPUT')
 
 def is_exact_real_integer(x):
     if isinstance(x, mpc):
@@ -425,15 +449,17 @@ def compute_partial(x_str, y_str, op):
     mp.dps = 250
     try:
         x = parse_input(x_str)
-    except Exception:
-        return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", False)
+    except Exception as e:
+        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+        return (code, code, code, code, False)
     is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
 
     if op in ('pr','cr'):
         try:
             y = parse_input(y_str)
-        except Exception:
-            return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", is_pos)
+        except Exception as e:
+            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+            return (code, code, code, code, is_pos)
     else:
         y = None
 
@@ -471,8 +497,9 @@ def compute_ulgenes(x_str, y_str, op):
     mp.dps = 250
     try:
         x = parse_input(x_str)
-    except Exception:
-        return ("INPUT_ERROR", False)
+    except Exception as e:
+        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+        return (code, False)
     is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
 
     if op == 'fact':
@@ -485,8 +512,9 @@ def compute_ulgenes(x_str, y_str, op):
     # pr/cr -> need y
     try:
         y = parse_input(y_str)
-    except Exception:
-        return ("INCOMPLETE", is_pos)
+    except Exception as e:
+        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+        return (code, is_pos)
 
     try:
         if op == 'pr':
@@ -538,7 +566,7 @@ async function initPy(){
 }
 initPy();
 
-/* compute flow: partial (fast) then ulgenes (cached + faster) */
+/* compute flow: evaluate all functions, then render together */
 computeBtn.addEventListener('click', compute);
 xinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
@@ -578,32 +606,31 @@ async function compute(){
     pyodide.globals.set('y_in', sy);
     pyodide.globals.set('op_in', operation);
 
-    // partial fast
     const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
+    const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
+
     const [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
+    const [uRaw, isPosU] = ulres;
 
     function mapOut(raw, isPos){
-      if(raw === 'INPUT_ERROR') return 'Error: Incomplete expression.';
-      if(raw === 'INCOMPLETE') return 'Error: Incomplete expression.';
+      if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression.';
+      if(raw === 'NAN_INPUT') return 'Error: Input is not a number.';
       if(raw === 'ERROR') return 'Error: Computation failed';
       if(raw === '∞̃' && isPos === true) return 'Error: Result is too big.';
       if(typeof raw === 'string') return toUnicodeMinus(raw);
       return String(raw);
     }
 
+    // render together after Ulgenes completes
     outGamma.textContent = mapOut(gRaw, isPosPartial);
     outHad.textContent = mapOut(hRaw, isPosPartial);
     outLus.textContent = mapOut(lRaw, isPosPartial);
     outKli.textContent = mapOut(kRaw, isPosPartial);
-
-    // Ulgenes (may take longer) — cached internally
-    const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
-    const [uRaw, isPosU] = ulres;
     outUl.textContent = mapOut(uRaw, isPosU);
 
   } catch(err){
     console.error('Compute failed', err);
-    const msg = 'Error: Incomplete expression.';
+    const msg = 'Error: Computation failed';
     outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
     outKli.textContent = msg; outUl.textContent = msg;
   } finally {
