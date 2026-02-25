@@ -142,8 +142,9 @@ def _make_digamma():
 digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
-BIG_EXP = 15        # 10^15
-SMALL_EXP = -10     # 10^-10
+SIGNIFICAND = 15
+BIG_EXP = SIGNIFICAND   # 10^[significand]
+SMALL_EXP = -10         # 10^-10
 INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
@@ -217,18 +218,21 @@ def fmt(z):
         return f\"{re_s}{sign}{im_s}i\"
 
     # real mpf
+    # exponent
+    try:
+        abs_z = abs(z)
+        exp = mp.floor(mp.log10(abs_z))
+    except Exception:
+        exp = None
+
+    # keep exact integer rendering only while value is below scientific cutoff
     try:
         nearest = int(mp.floor(z + mp.mpf('0.5')))
-        if abs(z - nearest) <= INT_TOL:
+        if abs(z - nearest) <= INT_TOL and abs_z < mp.power(10, BIG_EXP):
             return str(int(nearest))
     except Exception:
         pass
 
-    # exponent
-    try:
-        exp = mp.floor(mp.log10(abs(z)))
-    except Exception:
-        exp = None
     if exp is None:
         return _fmt_fixed(z)
     if exp >= BIG_EXP or exp < SMALL_EXP:
@@ -337,11 +341,19 @@ def _ul_key(x):
     return mp.nstr(x, 40)
 
 def ulgenes_direct(x):
+    # Ulgenes extension agrees with factorial on nonnegative integers.
+    # Use direct gamma there for a major speedup on large integer inputs.
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) >= 0:
+        try:
+            return mp.gamma(x + 1)
+        except Exception:
+            return mp.mpf('inf')
+
     key = _ul_key(x)
     if key in _ul_cache:
         return _ul_cache[key]
 
-    max_n = 300
+    max_n = 220
     # absolute floor and small relative threshold
     abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
     # relative factor for stopping (terms negligible compared to accumulated sum)
