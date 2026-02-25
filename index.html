@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pseudogamma family — Luschny & Klimek numeric fix</title>
+<title>Pseudogamma family — layout & integer-limit fixes</title>
 <style>
 :root{
   --bg:#0f172a;
@@ -13,30 +13,67 @@
   --accent-dark:#1e3a8a;
   --text:#e6eef8;
 }
+
+/* Box-sizing and base */
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-.page{min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg)}
-.op-card{width:100%;max-width:900px;background:var(--card);padding:12px;border-radius:12px;display:flex;justify-content:center;box-shadow:0 8px 30px rgba(2,6,23,.6)}
+html,body{
+  margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
+
+/* Page layout */
+.page{
+  min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg);
+}
+
+/* OPERATION CARD (above main) */
+.op-card{
+  width:100%;max-width:900px;background:var(--card);padding:12px;border-radius:12px;display:flex;justify-content:center;
+}
 .opgroup{display:flex;gap:8px}
-.opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer}
-.opgroup button.active{background:var(--accent-dark)}
-.card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.6)}
-.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap} /* CRITICAL */
-.inputs-row.one input{width:100%}
-.inputs-row.two input{width:50%}
-input{height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:var(--box);color:var(--text);font-size:16px;min-width:0}
-input::placeholder{color:rgba(230,238,248,.45)}
-.compute{margin-top:12px;display:flex;justify-content:center}
-.compute button{padding:10px 18px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer}
-.box{margin-top:14px;padding:12px;border-radius:8px;background:var(--box)}
-.label{font-weight:700;margin-bottom:6px}
-.out{font-family:monospace;white-space:pre-wrap}
-#errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede}
-@media(max-width:700px){.inputs-row{flex-direction:column}.inputs-row.two input{width:100%}}
+.opgroup button{
+  background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;
+}
+.opgroup button.active{background:var(--accent-dark);}
+
+/* MAIN CARD */
+.card{
+  width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;
+}
+
+/* INPUT ROW */
+.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* CRITICAL */
+.inputs-row.one input{width:100%;}
+.inputs-row.two input{width:50%;}
+input{
+  height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);
+  background:var(--box);color:var(--text);font-size:16px;
+}
+input::placeholder{color:rgba(230,238,248,.45);}
+
+/* Compute button */
+.compute{margin-top:12px;display:flex;justify-content:center;}
+.compute button{padding:10px 18px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;}
+
+/* Output boxes */
+.box{margin-top:14px;padding:12px;border-radius:8px;background:var(--box);}
+.label{font-weight:700;margin-bottom:6px;}
+.out{font-family:monospace;white-space:pre-wrap;}
+
+/* Global error (kept but not used for user-facing errors) */
+#errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
+
+/* Mobile */
+@media(max-width:700px){
+  .inputs-row{flex-direction:column;}
+  .inputs-row.two input{width:100%;}
+}
 </style>
 </head>
 <body>
 <div class="page">
+
+  <!-- operation card (above main) -->
   <div class="op-card">
     <div class="opgroup">
       <button id="btnFact" class="active">n!</button>
@@ -45,67 +82,83 @@ input::placeholder{color:rgba(230,238,248,.45)}
     </div>
   </div>
 
+  <!-- main card -->
   <div class="card">
+
+    <!-- inputs row (we adopted your snippet's working markup + behavior) -->
     <div id="inputsRow" class="inputs-row one">
-      <input id="xinput" placeholder="x">
-      <input id="yinput" placeholder="y">
+      <input id="xinput" placeholder="x (e.g. 5 or 3.5 or 2+1j)" aria-label="x">
+      <input id="yinput" placeholder="y (for nPr / nCr)" aria-label="y">
     </div>
 
     <div class="compute">
       <button id="compute">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma (shifted):</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard gamma (shifted):</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma (argument shifted by +1):</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard gamma (argument shifted by +1):</div><div id="outHad" class="out">—</div></div>
     <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek factorial (shifted):</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes lambda (shifted):</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek factorial (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Ulgenes lambda (argument shifted by +1):</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
+
   </div>
 </div>
 
+<!-- Pyodide -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
-/* inputs-row UI (unchanged, from your working snippet) */
+/* UI wiring (we take the inputs-row logic you provided) */
 const btnFact = document.getElementById('btnFact');
 const btnPr   = document.getElementById('btnPr');
 const btnCr   = document.getElementById('btnCr');
+
 const inputsRow = document.getElementById('inputsRow');
+const xinput = document.getElementById('xinput');
 const yinput = document.getElementById('yinput');
+
+const computeBtn = document.getElementById('compute');
+
+const outGamma = document.getElementById('outGamma');
+const outHad = document.getElementById('outHad');
+const outLus = document.getElementById('outLus');
+const outKli = document.getElementById('outKli');
+const outUl = document.getElementById('outUl');
+
+const errorBox = document.getElementById('errorBox');
+
+let operation = 'fact'; // 'fact' | 'pr' | 'cr'
 function setMode(mode){
   btnFact.classList.toggle('active', mode==='fact');
   btnPr.classList.toggle('active', mode==='pr');
   btnCr.classList.toggle('active', mode==='cr');
-  if(mode==='fact'){ inputsRow.className='inputs-row one'; yinput.style.display='none'; }
-  else{ inputsRow.className='inputs-row two'; yinput.style.display='block'; }
+  operation = mode;
+  if(mode==='fact'){
+    inputsRow.className = 'inputs-row one';
+    yinput.style.display = 'none';
+  } else {
+    inputsRow.className = 'inputs-row two';
+    yinput.style.display = 'block';
+  }
 }
 setMode('fact');
-btnFact.onclick=()=>setMode('fact'); btnPr.onclick=()=>setMode('pr'); btnCr.onclick=()=>setMode('cr');
-</script>
+btnFact.onclick = ()=>setMode('fact');
+btnPr.onclick   = ()=>setMode('pr');
+btnCr.onclick   = ()=>setMode('cr');
 
-<script>
-/* compute wiring & numeric core (mpmath via Pyodide).
-   IMPORTANT: I only adjusted numeric fallbacks for Luschny & Klimek;
-   the mathematical formulas remain the same.
-*/
-const computeBtn = document.getElementById('compute');
-const xinputEl = document.getElementById('xinput');
-const outGamma = document.getElementById('outGamma');
-const outHad   = document.getElementById('outHad');
-const outLus   = document.getElementById('outLus');
-const outKli   = document.getElementById('outKli');
-const outUl    = document.getElementById('outUl');
-
+/* helper: Unicode minus replacement */
 function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
 
-let pyodideReady = false;
+/* We will not show raw Python errors to the user; outputs will display errors inline.
+   The Python compute module below is the same robust core but with targeted symmetric-limit
+   handling for Luschny and Klimek at exact-integer points (so they won't show ∞̃ at integers). */
 
-/* Python compute module: same core, + high-precision symmetric-limit fallbacks for Luschny & Klimek */
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, binomial, exp
 mp.dps = 250
 
-# robust digamma wrapper detection + fallback
+# digamma wrapper detection (robust)
 def _make_digamma():
     try:
         test = mp.psi(mp.mpf('0.5'))
@@ -135,6 +188,7 @@ def _make_digamma():
 
 digamma = _make_digamma()
 
+# normalization helper (strip trailing zeros)
 def _normalize_decimal_str(s):
     if 'e' in s or 'E' in s:
         return s
@@ -144,6 +198,7 @@ def _normalize_decimal_str(s):
             return '0'
     return s
 
+# formatting with integer detection (tolerance)
 def fmt(z):
     tol = mp.power(10, -20)
     try:
@@ -162,138 +217,81 @@ def fmt(z):
         if abs(im) < tol:
             val = re
             nearest = int(mp.floor(val + mp.mpf('0.5')))
-            if abs(val - nearest) <= tol: return str(int(nearest))
-            s = nstr(val, 15); return _normalize_decimal_str(s)
-        re_s = nstr(re, 15); im_s = nstr(abs(im), 15)
-        re_s = _normalize_decimal_str(re_s); im_s = _normalize_decimal_str(im_s)
+            if abs(val - nearest) <= tol:
+                return str(int(nearest))
+            s = nstr(val, 15)
+            return _normalize_decimal_str(s)
+        re_s = _normalize_decimal_str(nstr(re, 15))
+        im_s = _normalize_decimal_str(nstr(abs(im), 15))
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
-        return f\"{re_s}{sign}{im_s}i\"
+        return f"{re_s}{sign}{im_s}i"
     else:
         val = z
+        # near-integer test
         nearest = int(mp.floor(val + mp.mpf('0.5')))
-        if abs(val - nearest) <= tol: return str(int(nearest))
-        s = nstr(val, 15); return _normalize_decimal_str(s)
+        if abs(val - nearest) <= tol:
+            return str(int(nearest))
+        s = nstr(val, 15)
+        return _normalize_decimal_str(s)
 
+# parse input preferring mpf for plain reals
 def parse_input(s):
     s = s.strip()
-    if s == '': raise ValueError('empty input')
+    if s == '':
+        raise ValueError('empty input')
     if ('i' not in s) and ('j' not in s):
-        try: return mp.mpf(s)
-        except Exception: pass
-    try: return mpc(s.replace('i','j'))
-    except Exception: raise ValueError('cannot parse input')
+        try:
+            return mp.mpf(s)
+        except Exception:
+            pass
+    try:
+        return mpc(s.replace('i','j'))
+    except Exception:
+        raise ValueError('cannot parse input')
 
 def is_exact_real_integer(x):
-    if isinstance(x, mpc): return False
+    if isinstance(x, mpc):
+        return False
     try:
         r = mp.re(x)
         return r == mp.mpf(int(r))
     except Exception:
         return False
 
-def symmetric_limit(func, x, eps=None, workdps=None):
-    """
-    Attempt symmetric limit with optional higher precision.
-    eps: mp.mpf small offset
-    workdps: increase precision (int) if provided
-    """
+def symmetric_limit(func, x, eps=None):
     if eps is None:
-        # pick eps relative to precision
-        eps = mp.power(10, -max(10, mp.dps//2))
-    if workdps is None:
-        return (func(x + eps) + func(x - eps)) / 2
-    else:
-        with mp.workdps(workdps):
-            return (func(x + eps) + func(x - eps)) / 2
+        eps = mp.power(10, -30)
+    return (func(x + eps) + func(x - eps)) / 2
 
-# ---- core definitions ----
+# Hadamard direct (argument evaluated at X)
+def hadamard_direct(X):
+    return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*gamma(1 - X))
 
-def f_gamma(x):
-    targ = x + 1
-    if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
-        return mp.mpf('inf')
-    try:
-        return gamma(targ)
-    except Exception:
-        return mp.mpf('inf')
+# Luschny formulas
+def luschny_unshifted(x):
+    # this corresponds to Luschny with argument shifted-by -1 (original UI)
+    y = x - 1
+    g = gamma(y + 1)
+    denom = pi * y
+    sinc = mp.mpf(1) if denom == 0 else sin(pi * y) / denom
+    inner = (y / 2) * (digamma((y + 1) / 2) - digamma(y / 2)) - mp.mpf('1/2')
+    return g * (1 - sinc * inner)
 
-def f_hadamard(x):
-    X = x + 1
-    if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
-        return symmetric_limit(lambda t: (digamma(1 - t/2) - digamma((1 - t)/2)) / (2*gamma(1 - t)), X)
-    try:
-        return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*gamma(1 - X))
-    except Exception:
-        return mp.mpf('inf')
-
-# Luschny expression (original), but we add robust fallback
-def luschny_expr(x):
+def luschny_L(x):
+    # standard Luschny L(x) = Gamma(x+1) * (1 - sin(pi x)/(pi x)*(...))
     g = gamma(x + 1)
     denom = pi * x
     sinc = mp.mpf(1) if denom == 0 else sin(pi * x) / denom
-    inner = (x/2) * (digamma((x+1)/2) - digamma(x/2)) - mp.mpf('1/2')
+    inner = (x / 2) * (digamma((x + 1) / 2) - digamma(x / 2)) - mp.mpf('1/2')
     return g * (1 - sinc * inner)
 
-def f_luschny(x):
-    # try direct
-    try:
-        val = luschny_expr(x)
-        if (mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300')):
-            # attempt symmetric limit with higher precision
-            # pick a larger working precision (cap to avoid insane memory usage)
-            work = max(mp.dps*3, 200)
-            work = min(work, 1200)
-            try:
-                lim = symmetric_limit(luschny_expr, x, eps=mp.power(10, -max(10, mp.dps//2)), workdps=work)
-                if not (mp.isnan(lim) or mp.isinf(lim) or abs(lim) > mp.mpf('1e300')):
-                    return lim
-            except Exception:
-                pass
-            return mp.mpf('inf')
-        return val
-    except Exception:
-        # direct failed — try symmetric limit with boosted precision
-        try:
-            work = max(mp.dps*3, 200)
-            work = min(work, 1200)
-            lim = symmetric_limit(luschny_expr, x, eps=mp.power(10, -max(10, mp.dps//2)), workdps=work)
-            if not (mp.isnan(lim) or mp.isinf(lim) or abs(lim) > mp.mpf('1e300')):
-                return lim
-        except Exception:
-            pass
-        return mp.mpf('inf')
-
-# Klimek expression & robust fallback
-def klimek_expr(A):
+# Klimek function direct
+def klimek_for_argument(A):
     term = sin(2 * pi * A) / (2 * pi)
     return gamma(A) * (1 + term * digamma(A))
 
-def f_klimek(x):
-    A = x + 1
-    try:
-        val = klimek_expr(A)
-        if (mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300')):
-            work = max(mp.dps*3, 200); work = min(work, 1200)
-            try:
-                lim = symmetric_limit(klimek_expr, A, eps=mp.power(10, -max(10, mp.dps//2)), workdps=work)
-                if not (mp.isnan(lim) or mp.isinf(lim) or abs(lim) > mp.mpf('1e300')):
-                    return lim
-            except Exception:
-                pass
-            return mp.mpf('inf')
-        return val
-    except Exception:
-        try:
-            work = max(mp.dps*3, 200); work = min(work, 1200)
-            lim = symmetric_limit(klimek_expr, A, eps=mp.power(10, -max(10, mp.dps//2)), workdps=work)
-            if not (mp.isnan(lim) or mp.isinf(lim) or abs(lim) > mp.mpf('1e300')):
-                return lim
-        except Exception:
-            pass
-        return mp.mpf('inf')
-
-# Ulgenes (unchanged)
-def ulgenes_direct_arg(A):
+# Ulgenes (same implementation — summation guarded)
+def ulgenes_direct(A):
     max_n = 2000
     tol = mp.power(10, -60)
     consec_small_needed = 8
@@ -331,14 +329,57 @@ def ulgenes_direct_arg(A):
         return mp.mpf('inf')
     return val
 
+# Now wrapper functions used by the UI (shifted defaults where requested)
+def f_gamma(x):
+    # Gamma(x+1)
+    targ = x + 1
+    if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
+        # Gamma has a pole — return inf (caller will use limit behavior if needed for combinatoric ops)
+        return mp.mpf('inf')
+    try:
+        return gamma(targ)
+    except Exception:
+        return mp.mpf('inf')
+
+def f_hadamard(x):
+    X = x + 1
+    # Hadamard at x+1: if X is nonnegative integer we take symmetric limit
+    if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
+        return symmetric_limit(hadamard_direct, X)
+    try:
+        return hadamard_direct(X)
+    except Exception:
+        return mp.mpf('inf')
+
+def f_luschny(x):
+    # For Luschny we need to return L(x) (not shifted) as UI wants Luschny factorial (with shift logic previously)
+    # The function is entire; handle exact-integer <=0 via symmetric limit to avoid γ poles
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) <= 0:
+        # use symmetric limit of the standard Luschny L(x)
+        return symmetric_limit(luschny_L, x)
+    try:
+        return luschny_L(x)
+    except Exception:
+        return mp.mpf('inf')
+
+def f_klimek(x):
+    # Klimek uses argument A = x+1 in the UI. For integer A <= 0 handle symmetric limit
+    A = x + 1
+    if (not isinstance(A, mpc)) and is_exact_real_integer(A) and int(mp.re(A)) <= 0:
+        return symmetric_limit(klimek_for_argument, A)
+    try:
+        return klimek_for_argument(A)
+    except Exception:
+        return mp.mpf('inf')
+
 def f_ulgenes(x):
     A = x + 1
-    return ulgenes_direct_arg(A)
+    return ulgenes_direct(A)
 
-# map
 f_map = {'gamma': f_gamma, 'hadamard': f_hadamard, 'luschny': f_luschny, 'klimek': f_klimek, 'ulgenes': f_ulgenes}
 
-# compute_main: returns five formatted strings + is_pos_real flag
+# compute_main performs f(x), f(x)/f(x-y), or f(x)/(f(y) f(x-y))
+# returns formatted string outputs or special markers 'INPUT_ERROR'/'ERROR', plus is_pos_real boolean.
 def compute_main(x_str, y_str, op):
     mp.dps = 250
     try:
@@ -368,7 +409,7 @@ def compute_main(x_str, y_str, op):
                     if mp.isinf(num) or mp.isnan(num):
                         val = mp.mpf('inf')
                     elif mp.isinf(den) or mp.isnan(den):
-                        val = mp.mpf('0')
+                        val = mp.mpf('0')  # denominator infinite -> result tends to 0
                     else:
                         try:
                             val = num/den
@@ -384,7 +425,7 @@ def compute_main(x_str, y_str, op):
                         val = mp.mpf('0')
                     else:
                         try:
-                            val = num / (den1 * den2)
+                            val = num/(den1*den2)
                         except Exception:
                             val = mp.mpf('inf')
                 else:
@@ -399,95 +440,108 @@ def compute_main(x_str, y_str, op):
     return tuple(outputs) + (bool(is_pos_real),)
 `;
 
-/* init pyodide and mpmath */
-async function initPyodide(){
+/* initialize pyodide and load mpmath */
+let pyodideReady = false;
+async function initPy(){
   try{
     computeBtn.disabled = true;
     computeBtn.textContent = 'Loading Python…';
-    await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'}).then(async py=>{
-      window.pyodide = py;
-      await pyodide.loadPackage('micropip');
-      await pyodide.runPythonAsync(`import micropip
-await micropip.install('mpmath')`);
-      await pyodide.runPythonAsync(pythonComputeModule);
-      pyodideReady = true;
-      computeBtn.disabled = false;
-      computeBtn.textContent = 'Compute';
-    });
-  }catch(err){
-    console.error(err);
-    const msg = 'Error: Failed to initialize the computation engine.';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-    computeBtn.disabled = true; computeBtn.textContent = 'Error';
+    window.pyodide = await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
+    await pyodide.loadPackage('micropip');
+    await pyodide.runPythonAsync(`import micropip\nawait micropip.install('mpmath')`);
+    await pyodide.runPythonAsync(pythonComputeModule);
+    pyodideReady = true;
+    computeBtn.disabled = false;
+    computeBtn.textContent = 'Compute';
+  } catch(e){
+    console.error(e);
+    computeBtn.disabled = true;
+    computeBtn.textContent = 'Error';
+    // show no stack to user, just set outputs to friendly message
+    outGamma.textContent = 'Error: initialization failed';
   }
 }
-initPyodide();
+initPy();
 
-/* compute handler: errors are placed in outputs */
+/* compute handler: we put errors into outputs themselves, not into errorBox */
 computeBtn.addEventListener('click', compute);
-xinputEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
-yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
+xinput.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') compute(); });
+yinput.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') compute(); });
 
 async function compute(){
-  // clear outputs
-  outGamma.textContent='—'; outHad.textContent='—'; outLus.textContent='—'; outKli.textContent='—'; outUl.textContent='—';
+  // clear outputs area
+  errorBox.style.display = 'none';
+  outGamma.textContent = '…';
+  outHad.textContent = '…';
+  outLus.textContent = '…';
+  outKli.textContent = '…';
+  outUl.textContent = '…';
 
   if(!pyodideReady){
-    const msg = 'Error: computation engine not ready.';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = 'Error: engine not ready';
     return;
   }
-  const op = btnFact.classList.contains('active') ? 'fact' : (btnPr.classList.contains('active') ? 'pr' : 'cr');
-  const rawX = document.getElementById('xinput').value.trim();
-  const rawY = document.getElementById('yinput').value.trim();
+  const sx = xinput.value.trim();
+  const sy = yinput.value.trim();
 
-  if(rawX === ''){
-    const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
+  if(sx === ''){
+    outGamma.textContent = 'Error: Input is not a number';
+    outHad.textContent = 'Error: Input is not a number';
+    outLus.textContent = 'Error: Input is not a number';
+    outKli.textContent = 'Error: Input is not a number';
+    outUl.textContent = 'Error: Input is not a number';
     return;
   }
-  if((op==='pr' || op==='cr') && rawY === ''){
-    const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
+  if((operation === 'pr' || operation === 'cr') && sy === ''){
+    outGamma.textContent = 'Error: Input is not a number';
+    outHad.textContent = 'Error: Input is not a number';
+    outLus.textContent = 'Error: Input is not a number';
+    outKli.textContent = 'Error: Input is not a number';
+    outUl.textContent = 'Error: Input is not a number';
     return;
   }
 
-  computeBtn.disabled = true; computeBtn.textContent = 'Computing…';
+  computeBtn.disabled = true;
+  computeBtn.textContent = 'Computing…';
 
   try{
-    pyodide.globals.set('x_in', rawX);
-    pyodide.globals.set('y_in', rawY);
-    pyodide.globals.set('op_in', op);
-    const res = await pyodide.runPythonAsync(`compute_main(x_in, y_in if y_in is not None else '', op_in)`);
-    const [gRaw,hRaw,lRaw,kRaw,uRaw,isPos] = res;
+    pyodide.globals.set('x_in', sx);
+    pyodide.globals.set('y_in', sy);
+    pyodide.globals.set('op_in', operation);
+    const res = await pyodide.runPythonAsync(`
+compute_main(x_in, y_in if y_in is not None else '', op_in)
+`);
+    // [g, h, l, k, u, is_pos]
+    const [gRaw, hRaw, lRaw, kRaw, uRaw, isPos] = res;
 
-    if(gRaw === 'INPUT_ERROR' || hRaw === 'INPUT_ERROR'){
-      const msg = 'Error: Input is not a number';
-      outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-    } else if (gRaw === 'ERROR' || hRaw === 'ERROR'){
-      const msg = 'Error: Computation failed';
-      outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-    } else {
-      function mapOut(raw){
-        if(raw === 'INPUT_ERROR') return 'Error: Input is not a number';
-        if(raw === 'ERROR') return 'Error: Computation failed';
-        if(raw === '∞̃' && isPos === true) return 'Error: Result is too big.';
-        if(typeof raw === 'string') return toUnicodeMinus(raw);
-        return String(raw);
-      }
-      outGamma.textContent = mapOut(gRaw);
-      outHad.textContent   = mapOut(hRaw);
-      outLus.textContent   = mapOut(lRaw);
-      outKli.textContent   = mapOut(kRaw);
-      outUl.textContent    = mapOut(uRaw);
+    // Map special markers to outputs inline
+    function mapOut(raw){
+      if(raw === 'INPUT_ERROR') return 'Error: Input is not a number';
+      if(raw === 'ERROR') return 'Error: Computation failed';
+      if(raw === '∞̃' && isPos === true) return 'Error: Result is too big.';
+      if(typeof raw === 'string') return toUnicodeMinus(raw);
+      return String(raw);
     }
-  }catch(err){
+
+    // Put results into outputs
+    outGamma.textContent = mapOut(gRaw);
+    outHad.textContent = mapOut(hRaw);
+    outLus.textContent = mapOut(lRaw);
+    outKli.textContent = mapOut(kRaw);
+    outUl.textContent = mapOut(uRaw);
+
+  } catch(err){
     console.error(err);
-    const msg = 'Error: Input is not a number';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-  }finally{
-    computeBtn.disabled = false; computeBtn.textContent = 'Compute';
-    try{ pyodide.globals.del('x_in'); pyodide.globals.del('y_in'); pyodide.globals.del('op_in'); }catch(e){}
+    // Do not reveal console error to user — show inline messages
+    outGamma.textContent = 'Error: Input is not a number';
+    outHad.textContent = 'Error: Input is not a number';
+    outLus.textContent = 'Error: Input is not a number';
+    outKli.textContent = 'Error: Input is not a number';
+    outUl.textContent = 'Error: Input is not a number';
+  } finally {
+    computeBtn.disabled = false;
+    computeBtn.textContent = 'Compute';
+    try{ pyodide.globals.del('x_in'); pyodide.globals.del('y_in'); pyodide.globals.del('op_in'); } catch(e){}
   }
 }
 </script>
