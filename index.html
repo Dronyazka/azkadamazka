@@ -210,10 +210,10 @@ def fmt(z):
         # tiny imaginary -> treat as real
         if abs(im) < mp.mpf('1e-25'):
             val = re
-            # integer check
+            # integer check (avoid collapsing tiny nonzero values to 0)
             try:
                 nearest = int(mp.floor(val + mp.mpf('0.5')))
-                if abs(val - nearest) <= INT_TOL and abs(val) < mp.power(10, BIG_EXP):
+                if abs(val) >= 1 and abs(val - nearest) <= INT_TOL and abs(val) < mp.power(10, BIG_EXP):
                     return str(int(nearest))
             except Exception:
                 pass
@@ -249,10 +249,11 @@ def fmt(z):
     except Exception:
         exp = None
 
-    # keep exact integer rendering only while value is below scientific cutoff
+    # keep exact integer rendering only away from zero and below scientific cutoff
+    # (prevents tiny nonzero values from collapsing to "0" due to INT_TOL)
     try:
         nearest = int(mp.floor(z + mp.mpf('0.5')))
-        if abs(z - nearest) <= INT_TOL and abs_z < mp.power(10, BIG_EXP):
+        if abs_z >= 1 and abs(z - nearest) <= INT_TOL and abs_z < mp.power(10, BIG_EXP):
             return str(int(nearest))
     except Exception:
         pass
