@@ -144,7 +144,7 @@ digamma = _make_digamma()
 # ----- formatting: explicit exponent decision -----
 SIGNIFICAND = 15
 BIG_EXP = SIGNIFICAND   # 10^[significand]
-SMALL_EXP = -10         # 10^-10
+SMALL_EXP = -3          # 10^-3
 INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
@@ -181,7 +181,7 @@ def _sci_to_fixed(s):
     return out
 
 def _fmt_fixed(z):
-    # fixed-form string inside the non-scientific window, trimmed but non-zero
+    # fixed-form string inside the non-scientific window, trimmed and capped to SIGNIFICAND
     s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
     s = _sci_to_fixed(s)
     if '.' in s:
