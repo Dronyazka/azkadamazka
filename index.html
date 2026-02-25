@@ -1,382 +1,234 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pseudogamma family — layout fix (yinput side-by-side)</title>
-  <style>
-    :root{
-      --page-bg: #0f172a;
-      --card-bg: #0b1220;
-      --box-bg: rgba(255,255,255,.02);
-      --accent: #2563eb;
-      --accent-dark: #153e8a;
-      --muted: rgba(230,238,248,.7);
-      --card-padding: 18px;
-      --gap: 12px;
-      --max-width: 960px;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generalized Factorials</title>
 
-    html,body{
-      height:100%;
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-      background-color:var(--page-bg) !important;
-      color:#e6eef8;
-    }
+<style>
+:root{
+  --bg:#0f172a;
+  --card:#0b1220;
+  --box:rgba(255,255,255,.03);
+  --accent:#2563eb;
+  --accent-dark:#1e3a8a;
+  --text:#e6eef8;
+}
 
-    .page{
-      min-height:100%;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      padding:32px;
-      gap:12px;
-      background-color:var(--page-bg) !important;
-    }
+*{box-sizing:border-box}
 
-    .op-card{
-      background-color:var(--card-bg) !important;
-      padding:12px;
-      border-radius:12px;
-      box-shadow:0 8px 30px rgba(2,6,23,.6);
-      width:100%;
-      max-width:var(--max-width);
-      display:flex;
-      justify-content:center;
-      box-sizing:border-box;
-    }
-    .opgroup{display:inline-flex;gap:8px}
-    .opgroup button{
-      background:#0b4adf;border:none;color:white;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;
-    }
-    .opgroup button.active{background:var(--accent-dark);box-shadow:0 6px 18px rgba(2,6,23,.6)}
+html,body{
+  margin:0;
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
 
-    .card{
-      background-color:var(--card-bg) !important;
-      padding:var(--card-padding);
-      border-radius:12px;
-      box-shadow:0 8px 30px rgba(2,6,23,.6);
-      width:100%;
-      max-width:var(--max-width);
-      display:block;
-      box-sizing:border-box;
-      color:inherit;
-    }
+.page{
+  min-height:100%;
+  padding:32px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  background:var(--bg);
+}
 
-    .controls{display:flex;flex-direction:column;gap:12px}
-    .inputs-row{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      width:100%;
-      flex-wrap:nowrap; /* prevent wrapping on wide screens */
-    }
+/* ─── OPERATION CARD ───────────────────────────── */
 
-    /* default: single full-width input */
-    .inputs-row.one input#xinput{
-      flex:1 1 auto;
-      min-width:0;
-      width:100%;
-    }
+.op-card{
+  width:100%;
+  max-width:900px;
+  background:var(--card);
+  padding:12px;
+  border-radius:12px;
+  display:flex;
+  justify-content:center;
+}
 
-    /* two inputs side-by-side: let flex manage widths, avoid explicit 50% */
-    .inputs-row.two input#xinput,
-    .inputs-row.two input#yinput{
-      flex:1 1 0;
-      min-width:0; /* crucial so they can shrink instead of wrapping */
-      box-sizing:border-box;
-    }
+.opgroup{
+  display:flex;
+  gap:8px;
+}
 
-    input[type=text]{
-      padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.06);
-      background-color:var(--box-bg) !important;
-      color:inherit;font-size:16px;
-      outline: none;
-      box-sizing:border-box;
-      height:44px;
-    }
-    input[type=text]::placeholder { color: rgba(230,238,248,.45); }
+.opgroup button{
+  background:var(--accent);
+  border:none;
+  color:white;
+  padding:10px 16px;
+  font-weight:700;
+  border-radius:8px;
+  cursor:pointer;
+}
 
-    .compute-row{display:flex;justify-content:center;margin-top:6px}
-    .compute-row button{padding:10px 14px;border-radius:8px;border:none;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+.opgroup button.active{
+  background:var(--accent-dark);
+}
 
-    .box{
-      margin-top:12px;padding:12px;border-radius:8px;
-      background-color:var(--box-bg) !important;
-      color:inherit;
-      box-sizing:border-box;
-    }
-    .label{font-weight:700;margin-bottom:6px}
-    .out{font-family:monospace;white-space:pre-wrap;color:inherit}
-    .small{font-size:13px;color:var(--muted);margin-top:8px}
-    pre#errorBox{
-      background:#2b3440;padding:10px;border-radius:8px;color:#ffecec;white-space:pre-wrap;overflow:auto;max-height:200px;display:none;margin-top:12px;
-    }
+/* ─── MAIN CARD ────────────────────────────────── */
 
-    /* prevent accidental white strips by ensuring backgrounds are painted */
-    .op-card, .card, .box, input[type=text], body { background-clip: padding-box; background-color: inherit; }
+.card{
+  width:100%;
+  max-width:900px;
+  background:var(--card);
+  padding:18px;
+  border-radius:12px;
+}
 
-    @media (max-width:820px){
-      .inputs-row{flex-direction:column}
-      .inputs-row.two input{width:100%}
-      .op-card, .card{width:100%}
-    }
-  </style>
+/* ─── INPUT ROW ────────────────────────────────── */
+
+.inputs-row{
+  display:flex;
+  gap:10px;
+  width:100%;
+  flex-wrap:nowrap;            /* CRITICAL */
+}
+
+.inputs-row.one input{
+  width:100%;
+}
+
+.inputs-row.two input{
+  width:50%;
+}
+
+input{
+  height:44px;
+  padding:10px 12px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:var(--box);
+  color:var(--text);
+  font-size:16px;
+}
+
+input::placeholder{
+  color:rgba(230,238,248,.45);
+}
+
+/* ─── BUTTON ───────────────────────────────────── */
+
+.compute{
+  margin-top:12px;
+  display:flex;
+  justify-content:center;
+}
+
+.compute button{
+  padding:10px 18px;
+  background:var(--accent);
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* ─── OUTPUT BOXES ─────────────────────────────── */
+
+.box{
+  margin-top:14px;
+  padding:12px;
+  border-radius:8px;
+  background:var(--box);
+}
+
+.label{
+  font-weight:700;
+  margin-bottom:6px;
+}
+
+.out{
+  font-family:monospace;
+  white-space:pre-wrap;
+}
+
+/* ─── ERROR ────────────────────────────────────── */
+
+#errorBox{
+  display:none;
+  margin-top:12px;
+  background:#2b3440;
+  padding:10px;
+  border-radius:8px;
+  color:#ffdede;
+}
+
+/* ─── MOBILE FALLBACK ──────────────────────────── */
+
+@media(max-width:700px){
+  .inputs-row{
+    flex-direction:column;
+  }
+  .inputs-row.two input{
+    width:100%;
+  }
+}
+</style>
 </head>
+
 <body>
-  <div class="page">
+<div class="page">
 
-    <div class="op-card" role="region" aria-label="operation buttons">
-      <div class="opgroup" role="toolbar" aria-label="operations">
-        <button id="btnFact" class="active" title="Compute f(x)">n!</button>
-        <button id="btnPr" title="Compute f(x)/f(x-y)">nPr</button>
-        <button id="btnCr" title="Compute f(x)/(f(y) f(x-y))">nCr</button>
-      </div>
-    </div>
-
-    <div class="card" role="main" aria-label="calculator">
-      <div class="controls" id="controls">
-        <div id="inputsRow" class="inputs-row one" >
-          <input id="xinput" type="text" placeholder="x (e.g. 5 or 3.5 or 2+1j)" aria-label="x value" />
-          <input id="yinput" type="text" placeholder="y (for nPr / nCr)" aria-label="y value" />
-        </div>
-
-        <div class="compute-row">
-          <button id="compute">Compute</button>
-        </div>
-      </div>
-
-      <div class="box">
-        <div id="labelGamma" class="label">Euler gamma function (argument shifted by +1):</div>
-        <div id="outGamma" class="out">—</div>
-      </div>
-
-      <div class="box">
-        <div id="labelHad" class="label">Hadamard gamma function (argument shifted by +1):</div>
-        <div id="outHad" class="out">—</div>
-      </div>
-
-      <div class="box">
-        <div id="labelLus" class="label">Luschny factorial:</div>
-        <div id="outLus" class="out">—</div>
-      </div>
-
-      <div class="box">
-        <div id="labelKli" class="label">Klimek factorial (argument shifted by +1):</div>
-        <div id="outKli" class="out">—</div>
-      </div>
-
-      <div class="box">
-        <div id="labelUl" class="label">Ulgenes lambda function (argument shifted by +1):</div>
-        <div id="outUl" class="out">—</div>
-      </div>
-
-      <div id="status" class="small">Loading...</div>
-      <pre id="errorBox"></pre>
+  <div class="op-card">
+    <div class="opgroup">
+      <button id="btnFact" class="active">n!</button>
+      <button id="btnPr">nPr</button>
+      <button id="btnCr">nCr</button>
     </div>
   </div>
 
-  <!-- Pyodide + compute core -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <script>
-    const btnFact = document.getElementById('btnFact');
-    const btnPr = document.getElementById('btnPr');
-    const btnCr = document.getElementById('btnCr');
+  <div class="card">
 
-    const computeBtn = document.getElementById('compute');
-    const xinput = document.getElementById('xinput');
-    const yinput = document.getElementById('yinput');
-    const inputsRow = document.getElementById('inputsRow');
-    const status = document.getElementById('status');
-    const errorBox = document.getElementById('errorBox');
+    <div id="inputsRow" class="inputs-row one">
+      <input id="xinput" placeholder="x">
+      <input id="yinput" placeholder="y">
+    </div>
 
-    const outGamma = document.getElementById('outGamma');
-    const outHad = document.getElementById('outHad');
-    const outLus = document.getElementById('outLus');
-    const outKli = document.getElementById('outKli');
-    const outUl = document.getElementById('outUl');
+    <div class="compute">
+      <button id="compute">Compute</button>
+    </div>
 
-    let pyodideReady = false;
-    let operation = 'fact';
+    <div class="box"><div class="label">Euler gamma (shifted):</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard gamma (shifted):</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek factorial (shifted):</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Ulgenes lambda (shifted):</div><div id="outUl" class="out">—</div></div>
 
-    // Explicitly hide yinput initially (inline style overrides any stylesheet)
+    <pre id="errorBox"></pre>
+
+  </div>
+</div>
+
+<script>
+const btnFact = document.getElementById('btnFact');
+const btnPr   = document.getElementById('btnPr');
+const btnCr   = document.getElementById('btnCr');
+
+const inputsRow = document.getElementById('inputsRow');
+const yinput = document.getElementById('yinput');
+
+function setMode(mode){
+  btnFact.classList.toggle('active', mode==='fact');
+  btnPr.classList.toggle('active', mode==='pr');
+  btnCr.classList.toggle('active', mode==='cr');
+
+  if(mode==='fact'){
+    inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none';
+  } else {
+    inputsRow.className = 'inputs-row two';
+    yinput.style.display = 'block';
+  }
+}
 
-    function applyLayoutFor(op){
-      operation = op;
-      btnFact.classList.toggle('active', op === 'fact');
-      btnPr.classList.toggle('active', op === 'pr');
-      btnCr.classList.toggle('active', op === 'cr');
+setMode('fact');
 
-      if(op === 'fact'){
-        inputsRow.classList.remove('two');
-        inputsRow.classList.add('one');
-        yinput.style.display = 'none';
-        // Reset inline sizing
-        xinput.style.width = '';
-        xinput.style.flex = '';
-        yinput.style.width = '';
-        yinput.style.flex = '';
-      } else {
-        inputsRow.classList.remove('one');
-        inputsRow.classList.add('two');
-        // show yinput explicitly as a flex item
-        yinput.style.display = 'block';
-        // enforce side-by-side via flex; min-width:0 prevents wrapping
-        xinput.style.flex = '1 1 0';
-        yinput.style.flex = '1 1 0';
-        xinput.style.width = '';
-        yinput.style.width = '';
-      }
-    }
+btnFact.onclick = ()=>setMode('fact');
+btnPr.onclick   = ()=>setMode('pr');
+btnCr.onclick   = ()=>setMode('cr');
+</script>
 
-    applyLayoutFor('fact');
-
-    btnFact.addEventListener('click', ()=> applyLayoutFor('fact'));
-    btnPr.addEventListener('click', ()=> applyLayoutFor('pr'));
-    btnCr.addEventListener('click', ()=> applyLayoutFor('cr'));
-
-    function showError(text){
-      errorBox.textContent = text;
-      errorBox.style.display = 'block';
-    }
-    function clearError(){
-      errorBox.textContent = '';
-      errorBox.style.display = 'none';
-    }
-
-    function toUnicodeMinus(s){
-      return s.replace(/-/g, '−');
-    }
-
-    // (Same robust python module as before — omitted here for brevity in explanation,
-    // but will be loaded below identically to prior working version.)
-    const pythonComputeModule = `... long python module omitted in this snippet ...`;
-
-    // Initialize pyodide and load the module exactly as in prior versions.
-    async function initPyodide(){
-      try {
-        computeBtn.disabled = true;
-        computeBtn.textContent = 'Loading Python…';
-        status.textContent = 'Loading Pyodide...';
-        window.pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/'});
-        status.textContent = 'Installing mpmath...';
-        await pyodide.loadPackage('micropip');
-        await pyodide.runPythonAsync(`import micropip\nawait micropip.install('mpmath')`);
-        // load the same compute helper you already had (paste the full module here as before)
-        await pyodide.runPythonAsync(pythonComputeModule);
-        pyodideReady = true;
-        computeBtn.disabled = false;
-        computeBtn.textContent = 'Compute';
-        status.textContent = 'Ready';
-      } catch (err) {
-        console.error(err);
-        status.textContent = 'Initialization failed';
-        showError('Error: Failed to initialize the computation engine.');
-        computeBtn.disabled = true;
-        computeBtn.textContent = 'Error';
-      }
-    }
-    initPyodide();
-
-    // compute wiring (same logic as before)
-    computeBtn.addEventListener('click', compute);
-    xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
-    yinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
-
-    async function compute(){
-      clearError();
-      if (!pyodideReady){
-        status.textContent = 'Python not ready';
-        return;
-      }
-      const rawX = xinput.value.trim();
-      const rawY = yinput.value.trim();
-      if (rawX === ''){
-        status.textContent = 'Enter a numeric input first.';
-        outGamma.textContent = '—';
-        outHad.textContent = '—';
-        outLus.textContent = '—';
-        outKli.textContent = '—';
-        outUl.textContent = '—';
-        return;
-      }
-      if ((operation === 'pr' || operation === 'cr') && rawY === ''){
-        status.textContent = 'Enter second argument y for nPr / nCr.';
-        outGamma.textContent = '—';
-        outHad.textContent = '—';
-        outLus.textContent = '—';
-        outKli.textContent = '—';
-        outUl.textContent = '—';
-        return;
-      }
-
-      computeBtn.disabled = true;
-      computeBtn.textContent = 'Computing…';
-      status.textContent = 'Computing...';
-
-      try {
-        pyodide.globals.set('x_in', rawX);
-        pyodide.globals.set('y_in', rawY);
-        pyodide.globals.set('op_in', operation);
-
-        const res = await pyodide.runPythonAsync(`
-compute_main(x_in, y_in if y_in is not None else '', op_in)
-`);
-        const [gRaw, hRaw, lRaw, kRaw, uRaw, isPos] = res;
-
-        if (gRaw === 'INPUT_ERROR' || hRaw === 'INPUT_ERROR'){
-          showError('Error: Input is not a number');
-          outGamma.textContent = '—';
-          outHad.textContent = '—';
-          outLus.textContent = '—';
-          outKli.textContent = '—';
-          outUl.textContent = '—';
-          status.textContent = 'Input error';
-          return;
-        }
-        if (gRaw === 'ERROR' || hRaw === 'ERROR'){
-          showError('Error: Computation failed');
-          outGamma.textContent = '—';
-          outHad.textContent = '—';
-          outLus.textContent = '—';
-          outKli.textContent = '—';
-          outUl.textContent = '—';
-          status.textContent = 'Error';
-          return;
-        }
-
-        function mapOutput(rawOut){
-          if (rawOut === 'INPUT_ERROR') return 'Error: Input is not a number';
-          if (rawOut === 'ERROR') return 'Error: Computation failed';
-          if (rawOut === '∞̃' && isPos === true) return 'Error: Result is too big.';
-          if (typeof rawOut === 'string') return toUnicodeMinus(rawOut);
-          return String(rawOut);
-        }
-
-        outGamma.textContent = mapOutput(gRaw);
-        outHad.textContent = mapOutput(hRaw);
-        outLus.textContent = mapOutput(lRaw);
-        outKli.textContent = mapOutput(kRaw);
-        outUl.textContent = mapOutput(uRaw);
-
-        status.textContent = 'Done';
-      } catch (err){
-        console.error(err);
-        showError('Error: Input is not a number');
-        outGamma.textContent = '—';
-        outHad.textContent = '—';
-        outLus.textContent = '—';
-        outKli.textContent = '—';
-        outUl.textContent = '—';
-        status.textContent = 'Error';
-      } finally {
-        computeBtn.disabled = false;
-        computeBtn.textContent = 'Compute';
-        try { pyodide.globals.del('x_in'); pyodide.globals.del('y_in'); pyodide.globals.del('op_in'); } catch(e){}
-      }
-    }
-  </script>
 </body>
 </html>
