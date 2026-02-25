@@ -154,7 +154,7 @@ def _fmt_sci(z):
 
 def _fmt_fixed(z):
     # produce a fixed-form string with up to 15 significant digits, no trailing zeros
-    s = mp.nstr(z, 15)  # often uses fixed form for moderate magnitudes
+    s = mp.nstr(z, 25)  # extra guard digits reduce accidental underflow-to-zero in fixed mode
     if 'e' in s or 'E' in s:
         # expand to more digits and then trim - this is a fallback when mp.nstr returned sci
         s = mp.nstr(z, 50, min_fixed=1)
@@ -200,7 +200,7 @@ def fmt(z):
                 exp = None
             if exp is None:
                 return _fmt_fixed(val)
-            if exp >= BIG_EXP or exp < SMALL_EXP:
+            if exp >= BIG_EXP or exp <= SMALL_EXP:
                 return _fmt_sci(val)
             return _fmt_fixed(val)
         # both parts possibly need different formatting
@@ -212,8 +212,8 @@ def fmt(z):
             exp_im = mp.floor(mp.log10(abs(im))) if im != 0 else 0
         except Exception:
             exp_im = 0
-        re_s = _fmt_sci(re) if (abs(re) != 0 and (exp_re >= BIG_EXP or exp_re < SMALL_EXP)) else _fmt_fixed(re)
-        im_s = _fmt_sci(abs(im)) if (abs(im) != 0 and (exp_im >= BIG_EXP or exp_im < SMALL_EXP)) else _fmt_fixed(abs(im))
+        re_s = _fmt_sci(re) if (abs(re) != 0 and (exp_re >= BIG_EXP or exp_re <= SMALL_EXP)) else _fmt_fixed(re)
+        im_s = _fmt_sci(abs(im)) if (abs(im) != 0 and (exp_im >= BIG_EXP or exp_im <= SMALL_EXP)) else _fmt_fixed(abs(im))
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
         return f\"{re_s}{sign}{im_s}i\"
 
@@ -235,7 +235,7 @@ def fmt(z):
 
     if exp is None:
         return _fmt_fixed(z)
-    if exp >= BIG_EXP or exp < SMALL_EXP:
+    if exp >= BIG_EXP or exp <= SMALL_EXP:
         return _fmt_sci(z)
     return _fmt_fixed(z)
 
@@ -341,9 +341,9 @@ def _ul_key(x):
     return mp.nstr(x, 40)
 
 def ulgenes_direct(x):
-    # Ulgenes extension agrees with factorial on nonnegative integers.
-    # Use direct gamma there for a major speedup on large integer inputs.
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) >= 0:
+    # Ulgenes extension tracks the factorial branch for nonnegative real inputs.
+    # Route these directly through gamma for a major speedup.
+    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
         try:
             return mp.gamma(x + 1)
         except Exception:
@@ -353,7 +353,7 @@ def ulgenes_direct(x):
     if key in _ul_cache:
         return _ul_cache[key]
 
-    max_n = 220
+    max_n = 160
     # absolute floor and small relative threshold
     abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
     # relative factor for stopping (terms negligible compared to accumulated sum)
