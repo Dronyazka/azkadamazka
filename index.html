@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pseudogamma family — formatting & Ulgenes perf fix</title>
+<title>Pseudogamma family — formatting + Ulgenes perf</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -61,7 +61,6 @@ input::placeholder{color:rgba(230,238,248,.45);}
   </div>
 </div>
 
-<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
 /* UI wiring */
@@ -87,13 +86,10 @@ function setMode(mode){
   btnCr.classList.toggle('active', mode === 'cr');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
-    yinput.style.display = 'none';
-    yinput.disabled = true;
-    yinput.value = '';
+    yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
   } else {
     inputsRow.className = 'inputs-row two';
-    yinput.style.display = '';
-    yinput.disabled = false;
+    yinput.style.display = ''; yinput.disabled = false;
   }
 }
 btnFact.addEventListener('click', ()=> setMode('fact'));
@@ -103,31 +99,30 @@ setMode('fact');
 
 function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
 
-/* ---------------- Python compute module (fixed formatting + faster Ulgenes) ----------------
-   Key points:
+/* ---------------- Python compute module (final improvements) ----------------
    - mp.dps = 250
-   - fmt outputs scientific (e-notation) when |val| >= 1e15 OR 0 < |val| < 1e-10
-     (this matches "very large" or "very small" behavior; middle range prints fixed form)
-   - Ulgenes inner k-sum uses math.comb(...) (fast integer comb) and caches results
-   - Outer binomial factor uses stable recurrence for speed
+   - explicit exponent computation drives fixed vs scientific output
+   - Ulgenes: inner k-sum cached via math.comb; ulgenes cache for memoization;
+     recurrence for top factor; relative+absolute stopping criteria
+   - compute_partial and compute_ulgenes functions exposed
 */
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
 import math
 mp.dps = 250
 
-# ---------- digamma detection / fallback ----------
+# ----- digamma detection/fallback -----
 def _make_digamma():
     try:
-        test = mp.psi(mp.mpf('0.5'))
+        _ = mp.psi(mp.mpf('0.5'))
         return lambda z: mp.psi(z)
     except TypeError:
         try:
-            test2 = mp.polygamma(0, mp.mpf('0.5'))
+            _ = mp.polygamma(0, mp.mpf('0.5'))
             return lambda z: mp.polygamma(0, z)
         except Exception:
             try:
-                test3 = mp.digamma(mp.mpf('0.5'))
+                _ = mp.digamma(mp.mpf('0.5'))
                 return lambda z: mp.digamma(z)
             except Exception:
                 def fallback(z):
@@ -136,7 +131,7 @@ def _make_digamma():
                 return fallback
     except Exception:
         try:
-            test2 = mp.polygamma(0, mp.mpf('0.5'))
+            _ = mp.polygamma(0, mp.mpf('0.5'))
             return lambda z: mp.polygamma(0, z)
         except Exception:
             def fallback(z):
@@ -146,71 +141,101 @@ def _make_digamma():
 
 digamma = _make_digamma()
 
-# ---------- formatting ----------
-BIG_THRESH = mp.power(10, 15)   # 10^15
-TINY_THRESH = mp.power(10, -10)  # 1e-10
-INT_TOL = mp.power(10, -20)      # tolerance to treat mpf as integer
+# ----- formatting: explicit exponent decision -----
+BIG_EXP = 15        # 10^15
+SMALL_EXP = -10     # 10^-10
+INT_TOL = mp.power(10, -20)
 
-def _normalize_decimal_str(s):
-    if 'e' in s or 'E' in s:
-        return s
-    if '.' in s:
-        s = s.rstrip('0').rstrip('.')
-        if s == '-0':
-            return '0'
+def _fmt_sci(z):
+    # ensure 15 significant digits and e-notation
+    s = mp.nstr(z, 15, min_fixed=0)
     return s
 
-def _sci_str(x):
-    # 15 significant digits in e-notation (mp.nstr will use e when needed)
-    return mp.nstr(x, 15, min_fixed=0)
+def _fmt_fixed(z):
+    # produce a fixed-form string with up to 15 significant digits, no trailing zeros
+    s = mp.nstr(z, 15)  # often uses fixed form for moderate magnitudes
+    if 'e' in s or 'E' in s:
+        # expand to more digits and then trim - this is a fallback when mp.nstr returned sci
+        s = mp.nstr(z, 50, min_fixed=1)
+    # trim trailing zeros
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
+    if s in ('-0', '+0'):
+        return '0'
+    return s
 
 def fmt(z):
-    # return string representation according to thresholds
+    # handle inf/overflow
     try:
-        if mp.isinf(z):
+        if mp.isinf(z) or abs(z) > mp.mpf('1e300'):
             return '∞̃'
     except Exception:
-        pass
+        return '∞̃'
+
+    # zero
     try:
-        if abs(z) > mp.mpf('1e300'):
-            return '∞̃'
+        if z == 0:
+            return '0'
     except Exception:
         pass
 
-    # complex numbers
+    # complex
     if isinstance(z, mpc):
         re = mp.re(z); im = mp.im(z)
-        if abs(im) < TINY_THRESH:
+        # tiny imaginary -> treat as real
+        if abs(im) < mp.mpf('1e-25'):
             val = re
+            # integer check
             try:
                 nearest = int(mp.floor(val + mp.mpf('0.5')))
                 if abs(val - nearest) <= INT_TOL:
                     return str(int(nearest))
             except Exception:
                 pass
-            if abs(val) >= BIG_THRESH or (abs(val) != 0 and abs(val) < TINY_THRESH):
-                return _sci_str(val)
-            return _normalize_decimal_str(mp.nstr(val, 15))
-        # format parts separately
-        re_s = _sci_str(re) if abs(re) >= BIG_THRESH or (abs(re) != 0 and abs(re) < TINY_THRESH) else _normalize_decimal_str(mp.nstr(re, 15))
-        im_s = _sci_str(abs(im)) if abs(im) >= BIG_THRESH or (abs(im) != 0 and abs(im) < TINY_THRESH) else _normalize_decimal_str(mp.nstr(abs(im), 15))
+            # magnitude check
+            try:
+                exp = mp.floor(mp.log10(abs(val)))
+            except Exception:
+                exp = None
+            if exp is None:
+                return _fmt_fixed(val)
+            if exp >= BIG_EXP or exp < SMALL_EXP:
+                return _fmt_sci(val)
+            return _fmt_fixed(val)
+        # both parts possibly need different formatting
+        try:
+            exp_re = mp.floor(mp.log10(abs(re))) if re != 0 else 0
+        except Exception:
+            exp_re = 0
+        try:
+            exp_im = mp.floor(mp.log10(abs(im))) if im != 0 else 0
+        except Exception:
+            exp_im = 0
+        re_s = _fmt_sci(re) if (abs(re) != 0 and (exp_re >= BIG_EXP or exp_re < SMALL_EXP)) else _fmt_fixed(re)
+        im_s = _fmt_sci(abs(im)) if (abs(im) != 0 and (exp_im >= BIG_EXP or exp_im < SMALL_EXP)) else _fmt_fixed(abs(im))
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
         return f\"{re_s}{sign}{im_s}i\"
 
     # real mpf
-    val = z
     try:
-        nearest = int(mp.floor(val + mp.mpf('0.5')))
-        if abs(val - nearest) <= INT_TOL:
+        nearest = int(mp.floor(z + mp.mpf('0.5')))
+        if abs(z - nearest) <= INT_TOL:
             return str(int(nearest))
     except Exception:
         pass
 
-    if abs(val) >= BIG_THRESH or (abs(val) != 0 and abs(val) < TINY_THRESH):
-        return _sci_str(val)
-    return _normalize_decimal_str(mp.nstr(val, 15))
+    # exponent
+    try:
+        exp = mp.floor(mp.log10(abs(z)))
+    except Exception:
+        exp = None
+    if exp is None:
+        return _fmt_fixed(z)
+    if exp >= BIG_EXP or exp < SMALL_EXP:
+        return _fmt_sci(z)
+    return _fmt_fixed(z)
 
-# ---------- parsing ----------
+# ----- parsing & helpers -----
 def parse_input(s):
     s = s.strip()
     if s == '':
@@ -239,7 +264,7 @@ def symmetric_limit(func, x, eps=None):
         eps = mp.power(10, -30)
     return (func(x + eps) + func(x - eps)) / 2
 
-# ---------- core functions ----------
+# ----- core functions (unchanged semantics) -----
 def f_gamma(x):
     targ = x + 1
     if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
@@ -289,8 +314,9 @@ def f_klimek(x):
     except Exception:
         return mp.mpf('inf')
 
-# ---------- Ulgenes (NO SHIFT) with faster inner k-sum using math.comb ----------
-_inner_cache = [mp.mpf('0')]  # index 0 unused
+# ----- Ulgenes: cached + faster inner k-sums + relative stopping -----
+_inner_cache = [mp.mpf('0')]   # index 0 unused, inner_cache[n] = inner sum for that n
+_ul_cache = {}                 # memoization: key -> mp.mpf result
 
 def _ensure_inner_cache(n_max):
     if len(_inner_cache) >= n_max + 1:
@@ -298,7 +324,7 @@ def _ensure_inner_cache(n_max):
     start = len(_inner_cache)
     for n in range(start, n_max + 1):
         inner = mp.mpf('0')
-        # use integer math.comb for exact combinatorial coefficients (faster)
+        # integer comb via math.comb
         for k in range(1, n + 1):
             sign = -1 if ((n + k) % 2) else 1
             coeff = mp.mpf(math.comb(2*n - 1, n - k))
@@ -306,51 +332,73 @@ def _ensure_inner_cache(n_max):
             inner += (-term_k if sign == -1 else term_k)
         _inner_cache.append(inner)
 
+def _ul_key(x):
+    # string key at modest precision to identify equal/similar inputs
+    return mp.nstr(x, 40)
+
 def ulgenes_direct(x):
-    # performance-tuned routine using recurrence for top factor
-    max_n = 300              # practical cap
-    tol = mp.power(10, -max(8, int(mp.dps/2)))  # relative absolute tolerance
-    consec_small_needed = 3
+    key = _ul_key(x)
+    if key in _ul_cache:
+        return _ul_cache[key]
+
+    max_n = 300
+    # absolute floor and small relative threshold
+    abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
+    # relative factor for stopping (terms negligible compared to accumulated sum)
+    rel_factor = mp.power(10, -12)
 
     _ensure_inner_cache(max_n)
     S = mp.mpf('0')
     consec_small = 0
+    top = x  # C(x,1) = x
 
-    # initial top = C(x,1) = x
-    top = x
     for n in range(1, max_n + 1):
         inner = _inner_cache[n]
         denom = mp.mpf(2*n - 1)
         term = top * (inner / denom)
 
         if mp.isnan(term) or mp.isinf(term):
-            return mp.mpf('inf')
+            _ul_cache[key] = mp.mpf('inf')
+            return _ul_cache[key]
 
-        S += term
+        # update S
+        S_prev = S
+        S = S + term
 
-        # use absolute and relative checks to stop earlier
         abs_term = abs(term)
-        if abs_term < tol:
+        # absolute stop
+        if abs_term < abs_floor:
             consec_small += 1
-            if consec_small >= consec_small_needed:
+            if consec_small >= 4:
                 break
         else:
             consec_small = 0
 
-        # recurrence ratio: top_{n+1} / top_n = (x+n)*(x-n)/((2n+1)*(2n))
+        # relative stop: if |term| < rel_factor * max(1,|S|)
+        if abs_term < rel_factor * max( mp.mpf(1), abs(S) ):
+            # a few consecutive small relative terms -> stop
+            consec_small += 1
+            if consec_small >= 3:
+                break
+
+        # recurrence update for top_{n+1}
         R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
         top = top * R
 
         if abs(S) > mp.mpf('1e300'):
-            return mp.mpf('inf')
+            _ul_cache[key] = mp.mpf('inf')
+            return _ul_cache[key]
 
     try:
         val = mp.e**S
     except Exception:
         val = mp.exp(S)
+
     if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
-        return mp.mpf('inf')
-    return val
+        _ul_cache[key] = mp.mpf('inf')
+    else:
+        _ul_cache[key] = val
+    return _ul_cache[key]
 
 f_map = {
     'gamma': f_gamma,
@@ -360,24 +408,27 @@ f_map = {
     'ulgenes': ulgenes_direct
 }
 
-# compute_partial: fast four (gamma, hadamard, luschny, klimek)
+# ----- exposed helpers to JS -----
 def compute_partial(x_str, y_str, op):
     mp.dps = 250
     try:
         x = parse_input(x_str)
     except Exception:
         return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", False)
-    is_pos_real = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+
     if op in ('pr','cr'):
         try:
             y = parse_input(y_str)
         except Exception:
-            return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", is_pos_real)
+            return ("INPUT_ERROR","INPUT_ERROR","INPUT_ERROR","INPUT_ERROR", is_pos)
     else:
         y = None
+
     outputs = []
-    for name in ['gamma','hadamard','luschny','klimek']:
-        f = f_map[name]
+    names = ['gamma','hadamard','luschny','klimek']
+    for nm in names:
+        f = f_map[nm]
         try:
             if op == 'fact':
                 val = f(x)
@@ -388,8 +439,7 @@ def compute_partial(x_str, y_str, op):
                 elif mp.isinf(den) or mp.isnan(den):
                     val = mp.mpf('0')
                 else:
-                    try: val = num/den
-                    except Exception: val = mp.mpf('inf')
+                    val = num/den
             elif op == 'cr':
                 num = f(x); den1 = f(y); den2 = f(x - y)
                 if mp.isinf(num) or mp.isnan(num):
@@ -397,36 +447,34 @@ def compute_partial(x_str, y_str, op):
                 elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
                     val = mp.mpf('0')
                 else:
-                    try: val = num/(den1*den2)
-                    except Exception: val = mp.mpf('inf')
+                    val = num/(den1*den2)
             else:
                 val = mp.mpf('inf')
         except Exception:
             val = mp.mpf('inf')
         outputs.append(fmt(val))
-    return tuple(outputs) + (bool(is_pos_real),)
+    return tuple(outputs) + (bool(is_pos),)
 
-# compute_ulgenes: now accepts y_str and performs fact/pr/cr using ulgenes_direct
 def compute_ulgenes(x_str, y_str, op):
     mp.dps = 250
     try:
         x = parse_input(x_str)
     except Exception:
         return ("INPUT_ERROR", False)
-    is_pos_real = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
 
     if op == 'fact':
         try:
             val = ulgenes_direct(x)
         except Exception:
             val = mp.mpf('inf')
-        return (fmt(val), bool(is_pos_real))
+        return (fmt(val), is_pos)
 
-    # pr/cr need y
+    # pr/cr -> need y
     try:
         y = parse_input(y_str)
     except Exception:
-        return ("INCOMPLETE", is_pos_real)
+        return ("INCOMPLETE", is_pos)
 
     try:
         if op == 'pr':
@@ -437,9 +485,8 @@ def compute_ulgenes(x_str, y_str, op):
             elif mp.isinf(den) or mp.isnan(den):
                 val = mp.mpf('0')
             else:
-                try: val = num/den
-                except Exception: val = mp.mpf('inf')
-            return (fmt(val), bool(is_pos_real))
+                val = num/den
+            return (fmt(val), is_pos)
         elif op == 'cr':
             num = ulgenes_direct(x)
             den1 = ulgenes_direct(y)
@@ -449,16 +496,15 @@ def compute_ulgenes(x_str, y_str, op):
             elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
                 val = mp.mpf('0')
             else:
-                try: val = num/(den1*den2)
-                except Exception: val = mp.mpf('inf')
-            return (fmt(val), bool(is_pos_real))
+                val = num/(den1*den2)
+            return (fmt(val), is_pos)
     except Exception:
-        return ("ERROR", is_pos_real)
+        return ("ERROR", is_pos)
 
-    return ("ERROR", is_pos_real)
+    return ("ERROR", is_pos)
 `;
 
-/* initialize Pyodide and install mpmath; load module */
+/* initialize pyodide and load mpmath + module */
 let pyodideReady = false;
 async function initPy(){
   try{
@@ -480,7 +526,7 @@ async function initPy(){
 }
 initPy();
 
-/* compute: partial fast 4 then ulgenes (which may be slower) */
+/* compute flow: partial (fast) then ulgenes (cached + faster) */
 computeBtn.addEventListener('click', compute);
 xinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
@@ -520,9 +566,9 @@ async function compute(){
     pyodide.globals.set('y_in', sy);
     pyodide.globals.set('op_in', operation);
 
-    // fast partial: gamma, hadamard, luschny, klimek
+    // partial fast
     const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
-    let [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
+    const [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
 
     function mapOut(raw, isPos){
       if(raw === 'INPUT_ERROR') return 'Error: Incomplete expression.';
@@ -538,7 +584,7 @@ async function compute(){
     outLus.textContent = mapOut(lRaw, isPosPartial);
     outKli.textContent = mapOut(kRaw, isPosPartial);
 
-    // Ulgenes (may be slower) — uses y for pr/cr
+    // Ulgenes (may take longer) — cached internally
     const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
     const [uRaw, isPosU] = ulres;
     outUl.textContent = mapOut(uRaw, isPosU);
