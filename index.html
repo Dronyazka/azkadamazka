@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pseudogamma family — Ulgenes performance & formula update</title>
+<title>Pseudogamma family — Engine fix</title>
 <style>
 :root{
   --bg:#0f172a;
@@ -21,7 +21,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
 .card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;}
-.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* CRITICAL: prevents wrapping */
+.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* prevents wrapping */
 .inputs-row.one input{width:100%;}
 .inputs-row.two input{width:50%;}
 input{height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:var(--box);color:var(--text);font-size:16px;}
@@ -39,27 +39,27 @@ input::placeholder{color:rgba(230,238,248,.45);}
 <div class="page">
   <div class="op-card">
     <div class="opgroup">
-      <button id="btnFact" class="active">n!</button>
-      <button id="btnPr">nPr</button>
-      <button id="btnCr">nCr</button>
+      <button id="btnFact" class="active" type="button">n!</button>
+      <button id="btnPr" type="button">nPr</button>
+      <button id="btnCr" type="button">nCr</button>
     </div>
   </div>
 
   <div class="card">
     <div id="inputsRow" class="inputs-row one">
-      <input id="xinput" placeholder="x (e.g. 5 or 3.5 or 2+1j)" aria-label="x">
-      <input id="yinput" placeholder="y (for nPr / nCr)" aria-label="y">
+      <input id="xinput" placeholder="x (e.g. 5 or 3.5 or 2+1j)" aria-label="x" type="text">
+      <input id="yinput" placeholder="y (for nPr / nCr)" aria-label="y" type="text" />
     </div>
 
     <div class="compute">
-      <button id="compute">Compute</button>
+      <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function (argument shifted by +1)</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K function (argument shifted by +1)</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes' lambda function</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma (argument shifted by +1):</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard gamma (argument shifted by +1):</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek factorial (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Ulgenes lambda function:</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
@@ -68,49 +68,58 @@ input::placeholder{color:rgba(230,238,248,.45);}
 <!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
-/* UI wiring (inputs / mode switching from your working snippet) */
+/* UI wiring (unchanged behavior) */
 const btnFact = document.getElementById('btnFact');
 const btnPr   = document.getElementById('btnPr');
 const btnCr   = document.getElementById('btnCr');
+
 const inputsRow = document.getElementById('inputsRow');
 const xinput = document.getElementById('xinput');
 const yinput = document.getElementById('yinput');
+
 const computeBtn = document.getElementById('compute');
+
 const outGamma = document.getElementById('outGamma');
 const outHad = document.getElementById('outHad');
 const outLus = document.getElementById('outLus');
 const outKli = document.getElementById('outKli');
 const outUl = document.getElementById('outUl');
+
 const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
 function setMode(mode){
-  btnFact.classList.toggle('active', mode==='fact');
-  btnPr.classList.toggle('active', mode==='pr');
-  btnCr.classList.toggle('active', mode==='cr');
   operation = mode;
-  if(mode==='fact'){
+  btnFact.classList.toggle('active', mode === 'fact');
+  btnPr.classList.toggle('active', mode === 'pr');
+  btnCr.classList.toggle('active', mode === 'cr');
+
+  if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none';
+    yinput.disabled = true;
+    yinput.value = '';
   } else {
     inputsRow.className = 'inputs-row two';
-    yinput.style.display = 'block';
+    yinput.style.display = '';
+    yinput.disabled = false;
   }
 }
+btnFact.addEventListener('click', ()=> setMode('fact'));
+btnPr.addEventListener('click', ()=> setMode('pr'));
+btnCr.addEventListener('click', ()=> setMode('cr'));
 setMode('fact');
-btnFact.onclick = ()=>setMode('fact');
-btnPr.onclick   = ()=>setMode('pr');
-btnCr.onclick   = ()=>setMode('cr');
 
 function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
 
-/* Python compute module with Ulgenes recurrence + inner-cache + new formula (no shift).
-   mp.dps kept at 250, formatting rules preserved. */
+/* --- Full Python computation module (optimized Ulgenes; mp.dps=250) ---
+   This is the same working compute module we used previously (keeps parsing behavior).
+*/
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, binomial, exp
 mp.dps = 250
 
-# ---------------- digamma detection (robust) ----------------
+# digamma wrapper detection (robust)
 def _make_digamma():
     try:
         test = mp.psi(mp.mpf('0.5'))
@@ -140,7 +149,7 @@ def _make_digamma():
 
 digamma = _make_digamma()
 
-# ---------------- formatting helpers ----------------
+# formatting helpers
 def _normalize_decimal_str(s):
     if 'e' in s or 'E' in s:
         return s
@@ -183,7 +192,7 @@ def fmt(z):
         s = nstr(val, 15)
         return _normalize_decimal_str(s)
 
-# ---------------- parse input ----------------
+# parse input preferring mpf for plain reals
 def parse_input(s):
     s = s.strip()
     if s == '':
@@ -212,8 +221,7 @@ def symmetric_limit(func, x, eps=None):
         eps = mp.power(10, -30)
     return (func(x + eps) + func(x - eps)) / 2
 
-# ---------------- core functions ----------------
-# Euler gamma (shifted): Gamma(x+1)
+# core functions
 def f_gamma(x):
     targ = x + 1
     if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
@@ -223,7 +231,6 @@ def f_gamma(x):
     except Exception:
         return mp.mpf('inf')
 
-# Hadamard (shifted)
 def hadamard_direct(X):
     return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*mp.gamma(1 - X))
 
@@ -236,7 +243,6 @@ def f_hadamard(x):
     except Exception:
         return mp.mpf('inf')
 
-# Luschny L(x) (entire)
 def luschny_L(x):
     g = mp.gamma(x + 1)
     denom = mp.pi * x
@@ -252,7 +258,6 @@ def f_luschny(x):
     except Exception:
         return mp.mpf('inf')
 
-# Klimek (uses argument shifted by +1)
 def klimek_for_argument(A):
     term = mp.sin(2 * mp.pi * A) / (2 * mp.pi)
     return mp.gamma(A) * (1 + term * digamma(A))
@@ -266,18 +271,14 @@ def f_klimek(x):
     except Exception:
         return mp.mpf('inf')
 
-# ---------------- Ulgenes (NEW formula, NO SHIFT) ----------------
-# Λ(x)=exp( sum_{n>=1} [ C(x+n-1,2n-1)/(2n-1) * inner(n) ] )
-# inner(n) = sum_{k=1..n} (-1)^{n+k} (2k-1) C(2n-1, n-k) ln(k)
-_inner_cache = [mp.mpf('0')]  # 0 index unused; store mp.mpf values for n >=1
-
+# Ulgenes (NEW formula, NO SHIFT)
+_inner_cache = [mp.mpf('0')]
 def _ensure_inner_cache(n_max):
     if len(_inner_cache) >= n_max + 1:
         return
     start = len(_inner_cache)
     for n in range(start, n_max + 1):
         inner = mp.mpf('0')
-        # compute inner sum (depends only on n)
         for k in range(1, n + 1):
             sign = -1 if ((n + k) % 2) else 1
             coeff = mp.binomial(2*n - 1, n - k)
@@ -286,11 +287,7 @@ def _ensure_inner_cache(n_max):
         _inner_cache.append(inner)
 
 def ulgenes_direct(x):
-    # Performance-tuned routine using recurrence for binomial factor
-    # top_n = C(x + n - 1, 2n - 1)
-    # recurrence ratio: top_{n+1} / top_n = (x+n)*(x-n)/((2n+1)*(2n))
-    max_n = 400  # practical cap; tuned for speed+accuracy
-    # adaptive tol chosen from precision: stop earlier when terms are irrelevant
+    max_n = 400
     tol = mp.power(10, -max(8, int(mp.dps/2)))
     consec_small_needed = 4
 
@@ -299,8 +296,7 @@ def ulgenes_direct(x):
     S = mp.mpf('0')
     consec_small = 0
 
-    # initialize top_1 = C(x+0, 1) = x
-    top = x  # works for mpf or mpc
+    top = x
     for n in range(1, max_n + 1):
         inner = _inner_cache[n]
         denom = mp.mpf(2*n - 1)
@@ -319,7 +315,6 @@ def ulgenes_direct(x):
         else:
             consec_small = 0
 
-        # update top -> top_{n+1} via recurrence R = (x+n)*(x-n)/((2n+1)*(2n))
         R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
         top = top * R
 
@@ -334,16 +329,14 @@ def ulgenes_direct(x):
         return mp.mpf('inf')
     return val
 
-# mapping of functions requested by UI
 f_map = {
     'gamma': f_gamma,
     'hadamard': f_hadamard,
     'luschny': f_luschny,
     'klimek': f_klimek,
-    'ulgenes': ulgenes_direct  # NOTE: ulgenes_direct takes x (no shift)
+    'ulgenes': ulgenes_direct
 }
 
-# compute_main: returns formatted strings or markers and is_pos_real flag
 def compute_main(x_str, y_str, op):
     mp.dps = 250
     try:
@@ -404,7 +397,7 @@ def compute_main(x_str, y_str, op):
     return tuple(outputs) + (bool(is_pos_real),)
 `;
 
-/* initialize Pyodide and mpmath */
+/* initialize Pyodide and load mpmath */
 let pyodideReady = false;
 async function initPy(){
   try{
@@ -417,25 +410,31 @@ async function initPy(){
     pyodideReady = true;
     computeBtn.disabled = false;
     computeBtn.textContent = 'Compute';
-  } catch(e){
-    console.error(e);
+  }catch(err){
+    console.error('Pyodide init failed', err);
+    // keep UI outputs as '—' per your request
+    pyodideReady = false;
     computeBtn.disabled = true;
     computeBtn.textContent = 'Error';
-    outGamma.textContent = 'Error: initialization failed';
   }
 }
 initPy();
 
-/* compute handler — inline outputs for errors */
+/* compute — inline error outputs */
 computeBtn.addEventListener('click', compute);
-xinput.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') compute(); });
-yinput.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') compute(); });
+xinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
+yinput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') compute(); });
 
 async function compute(){
   errorBox.style.display = 'none';
   outGamma.textContent = '…'; outHad.textContent = '…'; outLus.textContent = '…'; outKli.textContent = '…'; outUl.textContent = '…';
   if(!pyodideReady){
-    outGamma.textContent = 'Error: engine not ready';
+    const msg = 'Error: Engine is not ready.';
+    outGamma.textContent = msg;
+    outHad.textContent = msg;
+    outLus.textContent = msg;
+    outKli.textContent = msg;
+    outUl.textContent = msg;
     return;
   }
   const sx = xinput.value.trim();
@@ -470,11 +469,11 @@ async function compute(){
     outLus.textContent = mapOut(lRaw);
     outKli.textContent = mapOut(kRaw);
     outUl.textContent = mapOut(uRaw);
-  } catch(err){
-    console.error(err);
+  }catch(err){
+    console.error('Compute failed', err);
     const msg = 'Error: Input is not a number';
     outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg; outKli.textContent = msg; outUl.textContent = msg;
-  } finally {
+  }finally{
     computeBtn.disabled = false; computeBtn.textContent = 'Compute';
     try{ pyodide.globals.del('x_in'); pyodide.globals.del('y_in'); pyodide.globals.del('op_in'); } catch(e){}
   }
