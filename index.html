@@ -266,7 +266,7 @@ def fmt(z):
 
 # ----- parsing & helpers -----
 def parse_input(s):
-    s = s.strip()
+    s = s.strip().replace('−','-')
     if s == '':
         raise ValueError('EMPTY_INPUT')
     if ('i' not in s) and ('j' not in s):
