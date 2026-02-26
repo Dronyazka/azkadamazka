@@ -97,7 +97,7 @@ btnPr.addEventListener('click', ()=> setMode('pr'));
 btnCr.addEventListener('click', ()=> setMode('cr'));
 setMode('fact');
 
-function toUnicodeMinus(s){ return s.replace(/-/g, '−'); }
+function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 /* ---------------- Python compute module (final improvements) ----------------
    - mp.dps = 250
@@ -266,7 +266,7 @@ def fmt(z):
 
 # ----- parsing & helpers -----
 def parse_input(s):
-    s = s.strip().replace('−','-')
+    s = s.strip()
     if s == '':
         raise ValueError('EMPTY_INPUT')
     if ('i' not in s) and ('j' not in s):
@@ -618,7 +618,7 @@ async function compute(){
       if(raw === 'NAN_INPUT') return 'Error: Input is not a number';
       if(raw === 'ERROR') return 'Error: Computation failed';
       if(raw === '∞̃' && isPos === true) return 'Error: Result is too big';
-      if(typeof raw === 'string') return toUnicodeMinus(raw);
+      if(typeof raw === 'string') return toHyphenMinus(raw);
       return String(raw);
     }
 
