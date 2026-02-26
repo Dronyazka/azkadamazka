@@ -103,7 +103,7 @@ setMode('fact');
 function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 /* ---------------- Python compute module (final improvements) ----------------
-   - mp.dps = 375
+   - mp.dps = 450
    - explicit exponent computation drives fixed vs scientific output
    - Ulgenes: inner k-sum cached via math.comb; ulgenes cache for memoization;
      recurrence for top factor; relative+absolute stopping criteria
@@ -112,7 +112,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
 import math
-mp.dps = 375
+mp.dps = 450
 
 # ----- digamma detection/fallback -----
 def _make_digamma():
@@ -463,7 +463,7 @@ f_map = {
 
 # ----- exposed helpers to JS -----
 def compute_partial(x_str, y_str, op):
-    mp.dps = 375
+    mp.dps = 450
     try:
         x = parse_input(x_str)
     except Exception as e:
@@ -511,7 +511,7 @@ def compute_partial(x_str, y_str, op):
     return tuple(outputs) + (bool(is_pos),)
 
 def compute_ulgenes(x_str, y_str, op):
-    mp.dps = 375
+    mp.dps = 450
     try:
         x = parse_input(x_str)
     except Exception as e:
