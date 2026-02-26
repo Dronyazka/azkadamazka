@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" href="pseudogammacalc.ico" type="image/x-icon" />
-<title>Pseudogamma family — formatting + Ulgenes perf</title>
+<title>Pseudogamma Function Calculator</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -54,11 +54,11 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma (argument shifted by +1):</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard gamma (argument shifted by +1):</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek factorial (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes lambda function:</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard's gamma function (argument shifted by +1)</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek's K function (argument shifted by +1)</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Ulgenes lambda function</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
@@ -103,7 +103,7 @@ setMode('fact');
 function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 /* ---------------- Python compute module (final improvements) ----------------
-   - mp.dps = 250
+   - mp.dps = 375
    - explicit exponent computation drives fixed vs scientific output
    - Ulgenes: inner k-sum cached via math.comb; ulgenes cache for memoization;
      recurrence for top factor; relative+absolute stopping criteria
@@ -112,7 +112,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
 import math
-mp.dps = 250
+mp.dps = 375
 
 # ----- digamma detection/fallback -----
 def _make_digamma():
@@ -145,9 +145,9 @@ def _make_digamma():
 digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
-SIGNIFICAND = 15
+SIGNIFICAND = 30
 BIG_EXP = SIGNIFICAND   # 10^[significand]
-SMALL_EXP = -3          # 10^-3
+SMALL_EXP = -10          # 10^-10
 INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
@@ -378,7 +378,7 @@ def _ulgenes_series_value(x):
     if key in _ul_cache:
         return _ul_cache[key]
 
-    max_n = 160
+    max_n = 240
     # absolute floor and small relative threshold
     abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
     # relative factor for stopping (terms negligible compared to accumulated sum)
@@ -463,7 +463,7 @@ f_map = {
 
 # ----- exposed helpers to JS -----
 def compute_partial(x_str, y_str, op):
-    mp.dps = 250
+    mp.dps = 375
     try:
         x = parse_input(x_str)
     except Exception as e:
@@ -511,7 +511,7 @@ def compute_partial(x_str, y_str, op):
     return tuple(outputs) + (bool(is_pos),)
 
 def compute_ulgenes(x_str, y_str, op):
-    mp.dps = 250
+    mp.dps = 375
     try:
         x = parse_input(x_str)
     except Exception as e:
