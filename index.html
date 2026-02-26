@@ -432,12 +432,7 @@ def _ulgenes_series_value(x):
     return _ul_cache[key]
 
 def ulgenes_direct(x):
-    # core Λ(x)
-    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
-        try:
-            return mp.gamma(x + 1)
-        except Exception:
-            return mp.mpf('inf')
+    # core Λ(x): always use exponentiated series definition
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
