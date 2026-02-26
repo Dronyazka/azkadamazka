@@ -339,9 +339,13 @@ def klimek_for_argument(A):
 
 def f_klimek(x):
     A = x + 1
-    # always evaluate Klimek through its own expression; use symmetric limit at exact real integers
-    if (not isinstance(A, mpc)) and is_exact_real_integer(A):
-        return symmetric_limit(klimek_for_argument, A)
+    # force Klimek evaluation through its own formula path for real arguments
+    # (symmetric sampling avoids collapsing to direct gamma-only behavior)
+    if not isinstance(A, mpc):
+        try:
+            return symmetric_limit(klimek_for_argument, A)
+        except Exception:
+            return mp.mpf('inf')
     try:
         return klimek_for_argument(A)
     except Exception:
