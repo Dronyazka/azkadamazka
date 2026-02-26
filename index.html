@@ -444,7 +444,11 @@ def ulgenes_for_input(x):
     # requested UI behavior: output = 1/Λ(input) for negative real input
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
         base = ulgenes_direct(x)
-        if mp.isnan(base) or mp.isinf(base) or base == 0:
+        if mp.isnan(base):
+            return mp.mpf('inf')
+        if mp.isinf(base):
+            return mp.mpf('0')
+        if base == 0:
             return mp.mpf('inf')
         return 1 / base
     return ulgenes_direct(x)
