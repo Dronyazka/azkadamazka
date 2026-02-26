@@ -28,16 +28,16 @@ input::placeholder{color:rgba(230,238,248,.45);}
 .label{font-weight:700;margin-bottom:6px;}
 .out{font-family:monospace;white-space:pre-wrap;}
 #errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
-@media(max-width:700px){ .inputs-row{flex-direction:column;} .inputs-row.two input{width:100%;} }
+@media(max-width:700px){ .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
 </style>
 </head>
 <body>
 <div class="page">
   <div class="op-card">
     <div class="opgroup">
-      <button id="btnFact" class="active" type="button">n!</button>
-      <button id="btnCr" type="button">nCr</button>
-      <button id="btnPr" type="button">nPr</button>
+      <button id="btnFact" class="active" type="button"><i>n</i>!</button>
+      <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
+      <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
     </div>
   </div>
 
@@ -578,7 +578,7 @@ async function compute(){
   outKli.textContent = '…'; outUl.textContent = '…';
 
   if(!pyodideReady){
-    const msg = 'Error: Engine is not ready.';
+    const msg = 'Error: Engine is not ready';
     outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
     outKli.textContent = msg; outUl.textContent = msg;
     return;
@@ -588,13 +588,13 @@ async function compute(){
   const sy = yinput.value.trim();
 
   if(sx === ''){
-    const err = 'Error: Incomplete expression.';
+    const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
     outKli.textContent = err; outUl.textContent = err;
     return;
   }
   if((operation === 'pr' || operation === 'cr') && sy === ''){
-    const err = 'Error: Incomplete expression.';
+    const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
     outKli.textContent = err; outUl.textContent = err;
     return;
@@ -614,10 +614,10 @@ async function compute(){
     const [uRaw, isPosU] = ulres;
 
     function mapOut(raw, isPos){
-      if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression.';
-      if(raw === 'NAN_INPUT') return 'Error: Input is not a number.';
+      if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression';
+      if(raw === 'NAN_INPUT') return 'Error: Input is not a number';
       if(raw === 'ERROR') return 'Error: Computation failed';
-      if(raw === '∞̃' && isPos === true) return 'Error: Result is too big.';
+      if(raw === '∞̃' && isPos === true) return 'Error: Result is too big';
       if(typeof raw === 'string') return toUnicodeMinus(raw);
       return String(raw);
     }
