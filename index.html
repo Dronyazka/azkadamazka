@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pseudogamma family — formatting + Ulgenes perf</title>
+<title>Pseudogamma Function Calculator</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -53,10 +53,10 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma (argument shifted by +1):</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard gamma (argument shifted by +1):</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek factorial (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard gamma function (argument shifted by +1</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek's K function (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
     <div class="box"><div class="label">Ulgenes lambda function:</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
@@ -111,7 +111,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
 import math
-mp.dps = 250
+mp.dps = 500
 
 # ----- digamma detection/fallback -----
 def _make_digamma():
@@ -144,9 +144,9 @@ def _make_digamma():
 digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
-SIGNIFICAND = 15
+SIGNIFICAND = 30
 BIG_EXP = SIGNIFICAND   # 10^[significand]
-SMALL_EXP = -3          # 10^-3
+SMALL_EXP = -10          # 10^-10
 INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
