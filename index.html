@@ -441,9 +441,9 @@ def ulgenes_direct(x):
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
-    # requested UI behavior: output = 1/Λ(input) for negative real input
+    # requested UI behavior: for negative real input, output = 1/Λ(abs(input))
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
-        base = ulgenes_direct(x)
+        base = ulgenes_direct(abs(mp.re(x)))
         if mp.isnan(base):
             return mp.mpf('inf')
         if mp.isinf(base):
