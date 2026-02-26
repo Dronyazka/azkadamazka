@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" href="pseudogammacalc.ico" type="image/x-icon" />
-<title>Pseudogamma Function Calculator</title>
+<title>Pseudogamma family — formatting + Ulgenes perf</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -54,11 +54,11 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function (argument shifted by +1)</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K function (argument shifted by +1)</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes lambda function</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma (argument shifted by +1):</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard gamma (argument shifted by +1):</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Luschny factorial:</div><div id="outLus" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek factorial (argument shifted by +1):</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Ulgenes lambda function:</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
@@ -102,10 +102,17 @@ setMode('fact');
 
 function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
+/* ---------------- Python compute module (final improvements) ----------------
+   - mp.dps = 250
+   - explicit exponent computation drives fixed vs scientific output
+   - Ulgenes: inner k-sum cached via math.comb; ulgenes cache for memoization;
+     recurrence for top factor; relative+absolute stopping criteria
+   - compute_partial and compute_ulgenes functions exposed
+*/
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
 import math
-mp.dps = 375
+mp.dps = 250
 
 # ----- digamma detection/fallback -----
 def _make_digamma():
@@ -138,14 +145,14 @@ def _make_digamma():
 digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
-SIGNIFICAND = 30
+SIGNIFICAND = 15
 BIG_EXP = SIGNIFICAND   # 10^[significand]
-SMALL_EXP = -10          # 10^-10
+SMALL_EXP = -3          # 10^-3
 INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
     # ensure 15 significant digits and e-notation
-    s = mp.nstr(z, 15, min_fixed=0)
+    s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
     return s
 
 def _sci_to_fixed(s):
@@ -361,16 +368,8 @@ def _ul_key(x):
     # string key at modest precision to identify equal/similar inputs
     return mp.nstr(x, 40)
 
-def ulgenes_direct(x):
-    # Ulgenes extension tracks the factorial branch for nonnegative real inputs.
-    # Route these directly through gamma for a major speedup.
-    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
-        try:
-            return mp.gamma(x + 1)
-        except Exception:
-            return mp.mpf('inf')
-
-    key = _ul_key(x)
+def _ulgenes_series_value(x):
+    key = "series:" + _ul_key(x)
     if key in _ul_cache:
         return _ul_cache[key]
 
@@ -395,7 +394,6 @@ def ulgenes_direct(x):
             return _ul_cache[key]
 
         # update S
-        S_prev = S
         S = S + term
 
         abs_term = abs(term)
@@ -408,7 +406,7 @@ def ulgenes_direct(x):
             consec_small = 0
 
         # relative stop: if |term| < rel_factor * max(1,|S|)
-        if abs_term < rel_factor * max( mp.mpf(1), abs(S) ):
+        if abs_term < rel_factor * max(mp.mpf(1), abs(S)):
             # a few consecutive small relative terms -> stop
             consec_small += 1
             if consec_small >= 3:
@@ -432,6 +430,24 @@ def ulgenes_direct(x):
     else:
         _ul_cache[key] = val
     return _ul_cache[key]
+
+def ulgenes_direct(x):
+    # nonnegative real branch matches factorial directly
+    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
+        try:
+            return mp.gamma(x + 1)
+        except Exception:
+            return mp.mpf('inf')
+
+    # requested behavior: for negative real x, use 1/Λ(x)
+    if (not isinstance(x, mpc)) and (mp.re(x) < 0):
+        base = _ulgenes_series_value(x)
+        if mp.isnan(base) or mp.isinf(base) or base == 0:
+            return mp.mpf('inf')
+        return 1 / base
+
+    # complex fallback
+    return _ulgenes_series_value(x)
 
 f_map = {
     'gamma': f_gamma,
