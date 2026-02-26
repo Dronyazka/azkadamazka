@@ -432,22 +432,22 @@ def _ulgenes_series_value(x):
     return _ul_cache[key]
 
 def ulgenes_direct(x):
-    # nonnegative real branch matches factorial directly
+    # core Λ(x)
     if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
         try:
             return mp.gamma(x + 1)
         except Exception:
             return mp.mpf('inf')
+    return _ulgenes_series_value(x)
 
-    # requested behavior: for negative real x, use 1/Λ(x)
+def ulgenes_for_input(x):
+    # requested UI behavior: output = 1/Λ(input) for negative real input
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
-        base = _ulgenes_series_value(x)
+        base = ulgenes_direct(x)
         if mp.isnan(base) or mp.isinf(base) or base == 0:
             return mp.mpf('inf')
         return 1 / base
-
-    # complex fallback
-    return _ulgenes_series_value(x)
+    return ulgenes_direct(x)
 
 f_map = {
     'gamma': f_gamma,
@@ -517,7 +517,7 @@ def compute_ulgenes(x_str, y_str, op):
 
     if op == 'fact':
         try:
-            val = ulgenes_direct(x)
+            val = ulgenes_for_input(x)
         except Exception:
             val = mp.mpf('inf')
         return (fmt(val), is_pos)
@@ -531,8 +531,8 @@ def compute_ulgenes(x_str, y_str, op):
 
     try:
         if op == 'pr':
-            num = ulgenes_direct(x)
-            den = ulgenes_direct(x - y)
+            num = ulgenes_for_input(x)
+            den = ulgenes_for_input(x - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den) or mp.isnan(den):
@@ -541,9 +541,9 @@ def compute_ulgenes(x_str, y_str, op):
                 val = num/den
             return (fmt(val), is_pos)
         elif op == 'cr':
-            num = ulgenes_direct(x)
-            den1 = ulgenes_direct(y)
-            den2 = ulgenes_direct(x - y)
+            num = ulgenes_for_input(x)
+            den1 = ulgenes_for_input(y)
+            den2 = ulgenes_for_input(x - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
