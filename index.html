@@ -152,7 +152,7 @@ INT_TOL = mp.power(10, -20)
 
 def _fmt_sci(z):
     # ensure 15 significant digits and e-notation
-    s = mp.nstr(z, 15, min_fixed=0)
+    s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
     return s
 
 def _sci_to_fixed(s):
@@ -368,16 +368,8 @@ def _ul_key(x):
     # string key at modest precision to identify equal/similar inputs
     return mp.nstr(x, 40)
 
-def ulgenes_direct(x):
-    # Ulgenes extension tracks the factorial branch for nonnegative real inputs.
-    # Route these directly through gamma for a major speedup.
-    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
-        try:
-            return mp.gamma(x + 1)
-        except Exception:
-            return mp.mpf('inf')
-
-    key = _ul_key(x)
+def _ulgenes_series_value(x):
+    key = "series:" + _ul_key(x)
     if key in _ul_cache:
         return _ul_cache[key]
 
@@ -402,7 +394,6 @@ def ulgenes_direct(x):
             return _ul_cache[key]
 
         # update S
-        S_prev = S
         S = S + term
 
         abs_term = abs(term)
@@ -415,7 +406,7 @@ def ulgenes_direct(x):
             consec_small = 0
 
         # relative stop: if |term| < rel_factor * max(1,|S|)
-        if abs_term < rel_factor * max( mp.mpf(1), abs(S) ):
+        if abs_term < rel_factor * max(mp.mpf(1), abs(S)):
             # a few consecutive small relative terms -> stop
             consec_small += 1
             if consec_small >= 3:
@@ -439,6 +430,24 @@ def ulgenes_direct(x):
     else:
         _ul_cache[key] = val
     return _ul_cache[key]
+
+def ulgenes_direct(x):
+    # nonnegative real branch matches factorial directly
+    if (not isinstance(x, mpc)) and (mp.re(x) >= 0):
+        try:
+            return mp.gamma(x + 1)
+        except Exception:
+            return mp.mpf('inf')
+
+    # requested behavior: for negative real x, use 1/Λ(x)
+    if (not isinstance(x, mpc)) and (mp.re(x) < 0):
+        base = _ulgenes_series_value(x)
+        if mp.isnan(base) or mp.isinf(base) or base == 0:
+            return mp.mpf('inf')
+        return 1 / base
+
+    # complex fallback
+    return _ulgenes_series_value(x)
 
 f_map = {
     'gamma': f_gamma,
