@@ -536,8 +536,8 @@ def compute_ulgenes(x_str, y_str, op):
 
     try:
         if op == 'pr':
-            num = ulgenes_for_input(x)
-            den = ulgenes_for_input(x - y)
+            num = ulgenes_direct(x)
+            den = ulgenes_direct(x - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den) or mp.isnan(den):
@@ -546,9 +546,9 @@ def compute_ulgenes(x_str, y_str, op):
                 val = num/den
             return (fmt(val), is_pos)
         elif op == 'cr':
-            num = ulgenes_for_input(x)
-            den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x - y)
+            num = ulgenes_direct(x)
+            den1 = ulgenes_direct(y)
+            den2 = ulgenes_direct(x - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
