@@ -339,7 +339,8 @@ def klimek_for_argument(A):
 
 def f_klimek(x):
     A = x + 1
-    if (not isinstance(A, mpc)) and is_exact_real_integer(A) and int(mp.re(A)) <= 0:
+    # always evaluate Klimek through its own expression; use symmetric limit at exact real integers
+    if (not isinstance(A, mpc)) and is_exact_real_integer(A):
         return symmetric_limit(klimek_for_argument, A)
     try:
         return klimek_for_argument(A)
