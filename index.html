@@ -638,7 +638,7 @@ async function compute(){
       if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression';
       if(raw === 'NAN_INPUT') return 'Error: Input is not a number';
       if(raw === 'ERROR') return 'Error: Computation failed';
-      if(raw === '∞̃' && isPos === true) return 'Error: Result is too big';
+      if(raw === '∞̃') return '∞̃';
       if(typeof raw === 'string'){
         const s = toHyphenMinus(raw).trim();
         if (/^[+-]?0(?:\.0+)?(?:e[+-]?\d+)?$/i.test(s)) return '0';
