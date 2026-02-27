@@ -151,11 +151,11 @@
 
     <section class="grid">
       <figure>
-        <canvas id="inputCanvas" width="1024" height="512"></canvas>
+        <canvas id="inputCanvas" width="1" height="1"></canvas>
         <figcaption>Input height map (grayscale interpreted as elevation)</figcaption>
       </figure>
       <figure>
-        <canvas id="outputCanvas" width="1024" height="512"></canvas>
+        <canvas id="outputCanvas" width="1" height="1"></canvas>
         <figcaption>Flood result (blue = water depth, white = dry land; selectable transparency)</figcaption>
       </figure>
     </section>
@@ -278,13 +278,22 @@ def process_height_map(gray_values, rows, cols):
       return selected ? selected.value : 'none';
     }
 
+    function setCanvasResolution(width, height) {
+      inputCanvas.width = width;
+      inputCanvas.height = height;
+      outputCanvas.width = width;
+      outputCanvas.height = height;
+    }
+
     function drawImageToInputCanvas(img) {
-      const targetWidth = 1024;
-      const targetHeight = 512;
+      const targetWidth = img.naturalWidth || img.width;
+      const targetHeight = img.naturalHeight || img.height;
+
+      setCanvasResolution(targetWidth, targetHeight);
       inCtx.clearRect(0, 0, targetWidth, targetHeight);
       inCtx.drawImage(img, 0, 0, targetWidth, targetHeight);
       sourceImageData = inCtx.getImageData(0, 0, targetWidth, targetHeight);
-      stats.textContent = 'Image loaded. Click "Process in Python".';
+      stats.textContent = `Image loaded at original resolution: ${targetWidth}×${targetHeight}. Click "Process in Python".`;
       latestDepthMap = null;
       outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     }
