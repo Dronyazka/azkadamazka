@@ -145,14 +145,18 @@ def _make_digamma():
 digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
-SIGNIFICAND = 15
-BIG_EXP = SIGNIFICAND   # 10^[significand]
+DECIMAL_PLACES = 30
+BIG_EXP = DECIMAL_PLACES   # 10^[significand]
 SMALL_EXP = -3          # 10^-3
 INT_TOL = mp.power(10, -20)
+ROUND_SCALE = mp.power(10, DECIMAL_PLACES)
+
+def _round_decimal_places(z):
+    return mp.nint(z * ROUND_SCALE) / ROUND_SCALE
 
 def _fmt_sci(z):
-    # ensure 15 significant digits and e-notation
-    s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
+    # scientific notation rounded to DECIMAL_PLACES digits after decimal
+    s = mp.nstr(_round_decimal_places(z), DECIMAL_PLACES + 1, min_fixed=0)
     return s
 
 def _sci_to_fixed(s):
@@ -184,8 +188,8 @@ def _sci_to_fixed(s):
     return out
 
 def _fmt_fixed(z):
-    # fixed-form string inside the non-scientific window, trimmed and capped to SIGNIFICAND
-    s = mp.nstr(z, SIGNIFICAND, min_fixed=0)
+    # fixed-form string rounded to DECIMAL_PLACES, then trimmed
+    s = mp.nstr(_round_decimal_places(z), DECIMAL_PLACES + 5, min_fixed=0)
     s = _sci_to_fixed(s)
     if '.' in s:
         s = s.rstrip('0').rstrip('.')
