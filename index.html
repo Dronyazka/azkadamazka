@@ -28,7 +28,7 @@ input::placeholder{color:rgba(230,238,248,.45);}
 .compute button{padding:10px 18px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;}
 .box{margin-top:14px;padding:12px;border-radius:8px;background:var(--box);}
 .label{font-weight:700;margin-bottom:6px;}
-.out{font-family:monospace;white-space:pre-wrap;}
+.out{font-family:monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
 #errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
 @media(max-width:700px){ .page{padding:20px;} .op-card,.card{max-width:960px;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
 </style>
@@ -146,18 +146,30 @@ digamma = _make_digamma()
 
 # ----- formatting: explicit exponent decision -----
 DECIMAL_PLACES = 30
-BIG_EXP = DECIMAL_PLACES   # 10^[significand]
-SMALL_EXP = -10          # 10^-10
+SCI_SIG_DIGITS = 30
+LOWER_FIXED_BOUND = mp.mpf('1e-10')
+UPPER_FIXED_BOUND = mp.mpf('1e15')
 INT_TOL = mp.power(10, -20)
 ROUND_SCALE = mp.power(10, DECIMAL_PLACES)
+
+def _use_fixed(abs_val):
+    return abs_val > LOWER_FIXED_BOUND and abs_val < UPPER_FIXED_BOUND
+
+def _normalize_zero_string(s):
+    try:
+        if mp.mpf(s) == 0:
+            return '0'
+    except Exception:
+        pass
+    return s
 
 def _round_decimal_places(z):
     return mp.nint(z * ROUND_SCALE) / ROUND_SCALE
 
 def _fmt_sci(z):
-    # scientific notation rounded to DECIMAL_PLACES digits after decimal
-    s = mp.nstr(_round_decimal_places(z), DECIMAL_PLACES + 1, min_fixed=0)
-    return s
+    # scientific notation with 30-digit significand
+    s = mp.nstr(z, SCI_SIG_DIGITS, min_fixed=0, max_fixed=0)
+    return _normalize_zero_string(s)
 
 def _sci_to_fixed(s):
     t = s.strip()
@@ -195,7 +207,7 @@ def _fmt_fixed(z):
         s = s.rstrip('0').rstrip('.')
     if s in ('', '-0', '+0'):
         return '0'
-    return s
+    return _normalize_zero_string(s)
 def fmt(z):
     # handle inf/overflow
     try:
@@ -220,56 +232,45 @@ def fmt(z):
             # integer check (avoid collapsing tiny nonzero values to 0)
             try:
                 nearest = int(mp.floor(val + mp.mpf('0.5')))
-                if abs(val) >= 1 and abs(val - nearest) <= INT_TOL and abs(val) < mp.power(10, BIG_EXP):
+                if abs(val) >= 1 and abs(val - nearest) <= INT_TOL and abs(val) < UPPER_FIXED_BOUND:
                     return str(int(nearest))
             except Exception:
                 pass
-            # magnitude check
             try:
-                exp = mp.floor(mp.log10(abs(val)))
+                abs_val = abs(val)
             except Exception:
-                exp = None
-            if exp is None:
+                abs_val = None
+            if abs_val is None:
                 return _fmt_fixed(val)
-            if exp >= BIG_EXP or exp <= SMALL_EXP:
-                return _fmt_sci(val)
-            return _fmt_fixed(val)
+            return _fmt_fixed(val) if _use_fixed(abs_val) else _fmt_sci(val)
         # both parts possibly need different formatting
-        try:
-            exp_re = mp.floor(mp.log10(abs(re))) if re != 0 else 0
-        except Exception:
-            exp_re = 0
-        try:
-            exp_im = mp.floor(mp.log10(abs(im))) if im != 0 else 0
-        except Exception:
-            exp_im = 0
-        re_s = _fmt_sci(re) if (abs(re) != 0 and (exp_re >= BIG_EXP or exp_re <= SMALL_EXP)) else _fmt_fixed(re)
-        im_s = _fmt_sci(abs(im)) if (abs(im) != 0 and (exp_im >= BIG_EXP or exp_im <= SMALL_EXP)) else _fmt_fixed(abs(im))
+        re_abs = abs(re)
+        im_abs = abs(im)
+        re_s = _fmt_fixed(re) if (re_abs == 0 or _use_fixed(re_abs)) else _fmt_sci(re)
+        im_s = _fmt_fixed(im_abs) if (im_abs == 0 or _use_fixed(im_abs)) else _fmt_sci(im_abs)
+        re_s = _normalize_zero_string(re_s)
+        im_s = _normalize_zero_string(im_s)
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
-        return f\"{re_s}{sign}{im_s}i\"
+        return f"{re_s}{sign}{im_s}i"
 
     # real mpf
-    # exponent
     try:
         abs_z = abs(z)
-        exp = mp.floor(mp.log10(abs_z))
     except Exception:
-        exp = None
+        abs_z = None
 
     # keep exact integer rendering only away from zero and below scientific cutoff
     # (prevents tiny nonzero values from collapsing to "0" due to INT_TOL)
     try:
         nearest = int(mp.floor(z + mp.mpf('0.5')))
-        if abs_z >= 1 and abs(z - nearest) <= INT_TOL and abs_z < mp.power(10, BIG_EXP):
+        if abs_z is not None and abs_z >= 1 and abs(z - nearest) <= INT_TOL and abs_z < UPPER_FIXED_BOUND:
             return str(int(nearest))
     except Exception:
         pass
 
-    if exp is None:
+    if abs_z is None:
         return _fmt_fixed(z)
-    if exp >= BIG_EXP or exp <= SMALL_EXP:
-        return _fmt_sci(z)
-    return _fmt_fixed(z)
+    return _fmt_fixed(z) if _use_fixed(abs_z) else _fmt_sci(z)
 
 # ----- parsing & helpers -----
 def parse_input(s):
