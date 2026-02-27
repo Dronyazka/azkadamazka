@@ -178,10 +178,15 @@
     const inCtx = inputCanvas.getContext('2d', { willReadFrequently: true });
     const outCtx = outputCanvas.getContext('2d');
 
+    const MAX_PROCESS_PIXELS = 2_500_000;
+    const MAX_PROCESS_DIM = 4096;
+
     let pyodide;
     let sourceGray = null;
     let sourceWidth = 0;
     let sourceHeight = 0;
+    let originalWidth = 0;
+    let originalHeight = 0;
     let latestDepthMap = null;
 
     const pythonModule = `
@@ -287,9 +292,21 @@ def process_height_map(gray_values, rows, cols):
       outputCanvas.height = height;
     }
 
+    function computeProcessingSize(width, height) {
+      const byDimension = Math.min(1, MAX_PROCESS_DIM / Math.max(width, height));
+      const byPixels = Math.min(1, Math.sqrt(MAX_PROCESS_PIXELS / (width * height)));
+      const scale = Math.min(byDimension, byPixels);
+      return {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+        scale,
+      };
+    }
+
     function drawImageToInputCanvas(img) {
-      const targetWidth = img.naturalWidth || img.width;
-      const targetHeight = img.naturalHeight || img.height;
+      originalWidth = img.naturalWidth || img.width;
+      originalHeight = img.naturalHeight || img.height;
+      const { width: targetWidth, height: targetHeight, scale } = computeProcessingSize(originalWidth, originalHeight);
 
       setCanvasResolution(targetWidth, targetHeight);
       inCtx.clearRect(0, 0, targetWidth, targetHeight);
@@ -298,7 +315,10 @@ def process_height_map(gray_values, rows, cols):
       sourceGray = imageDataToGrayArray(imageData);
       sourceWidth = targetWidth;
       sourceHeight = targetHeight;
-      stats.textContent = `Image loaded at original resolution: ${targetWidth}×${targetHeight}. Click "Process in Python".`;
+      const usedDownscale = scale < 0.9999;
+      stats.textContent = usedDownscale
+        ? `Image loaded: ${originalWidth}×${originalHeight}. Processing at ${targetWidth}×${targetHeight} to keep memory stable for very large files. Click "Process in Python".`
+        : `Image loaded at original resolution: ${targetWidth}×${targetHeight}. Click "Process in Python".`;
       latestDepthMap = null;
       outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     }
@@ -389,7 +409,7 @@ result
         const target = result.get('target_km3');
         const floodedFrac = result.get('flooded_fraction');
         const maxDepth = result.get('max_depth_km');
-        latestDepthMap = Float32Array.from(depthMapProxy.toJs());
+        latestDepthMap = depthMapProxy.toJs();
 
         drawFloodDepth(latestDepthMap, sourceWidth, sourceHeight);
 
@@ -399,12 +419,17 @@ result
         pyodide.globals.delete('rows_js');
         pyodide.globals.delete('cols_js');
 
+        const processingNote = (sourceWidth !== originalWidth || sourceHeight !== originalHeight)
+          ? `Processing resolution used: ${sourceWidth}×${sourceHeight} (uploaded ${originalWidth}×${originalHeight})`
+          : `Processing resolution used: ${sourceWidth}×${sourceHeight}`;
+
         stats.textContent = [
           `Solved water level: ${seaLevel.toFixed(4)} km (relative to map's elevation scale)`,
           `Computed water volume: ${volume.toExponential(6)} km^3`,
           `Target Earth water volume: ${target.toExponential(6)} km^3`,
           `Flooded pixel fraction: ${(floodedFrac * 100).toFixed(2)}%`,
           `Maximum local water depth: ${maxDepth.toFixed(3)} km`,
+          processingNote,
           '',
           'Assumptions:',
           '- grayscale 0..255 maps linearly to elevation range [-11 km, +9 km]',
