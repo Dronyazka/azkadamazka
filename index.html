@@ -179,7 +179,9 @@
     const outCtx = outputCanvas.getContext('2d');
 
     let pyodide;
-    let sourceImageData;
+    let sourceGray = null;
+    let sourceWidth = 0;
+    let sourceHeight = 0;
     let latestDepthMap = null;
 
     const pythonModule = `
@@ -292,7 +294,10 @@ def process_height_map(gray_values, rows, cols):
       setCanvasResolution(targetWidth, targetHeight);
       inCtx.clearRect(0, 0, targetWidth, targetHeight);
       inCtx.drawImage(img, 0, 0, targetWidth, targetHeight);
-      sourceImageData = inCtx.getImageData(0, 0, targetWidth, targetHeight);
+      const imageData = inCtx.getImageData(0, 0, targetWidth, targetHeight);
+      sourceGray = imageDataToGrayArray(imageData);
+      sourceWidth = targetWidth;
+      sourceHeight = targetHeight;
       stats.textContent = `Image loaded at original resolution: ${targetWidth}×${targetHeight}. Click "Process in Python".`;
       latestDepthMap = null;
       outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -300,9 +305,9 @@ def process_height_map(gray_values, rows, cols):
 
     function imageDataToGrayArray(imageData) {
       const data = imageData.data;
-      const gray = new Array(imageData.width * imageData.height);
+      const gray = new Uint8Array(imageData.width * imageData.height);
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        gray[p] = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+        gray[p] = (data[i] + data[i + 1] + data[i + 2]) / 3;
       }
       return gray;
     }
@@ -340,20 +345,27 @@ def process_height_map(gray_values, rows, cols):
       const file = fileInput.files?.[0];
       if (!file) return;
       const img = new Image();
-      img.onload = () => drawImageToInputCanvas(img);
-      img.src = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        drawImageToInputCanvas(img);
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.src = objectUrl;
     });
 
     transparencyInputs.forEach((input) => {
       input.addEventListener('change', () => {
-        if (latestDepthMap && sourceImageData) {
-          drawFloodDepth(latestDepthMap, sourceImageData.width, sourceImageData.height);
+        if (latestDepthMap && sourceWidth && sourceHeight) {
+          drawFloodDepth(latestDepthMap, sourceWidth, sourceHeight);
         }
       });
     });
 
     processBtn.addEventListener('click', async () => {
-      if (!sourceImageData) {
+      if (!sourceGray) {
         stats.textContent = 'Please upload an image first.';
         return;
       }
@@ -362,24 +374,30 @@ def process_height_map(gray_values, rows, cols):
       pyStatus.classList.remove('warn');
 
       try {
-        const gray = imageDataToGrayArray(sourceImageData);
-        pyodide.globals.set('gray_values_js', gray);
-        pyodide.globals.set('rows_js', sourceImageData.height);
-        pyodide.globals.set('cols_js', sourceImageData.width);
+        pyodide.globals.set('gray_values_js', sourceGray);
+        pyodide.globals.set('rows_js', sourceHeight);
+        pyodide.globals.set('cols_js', sourceWidth);
 
         const result = pyodide.runPython(`
 result = process_height_map(gray_values_js, rows_js, cols_js)
 result
 `);
 
+        const depthMapProxy = result.get('depth_map_km');
         const seaLevel = result.get('sea_level_km');
         const volume = result.get('volume_km3');
         const target = result.get('target_km3');
         const floodedFrac = result.get('flooded_fraction');
         const maxDepth = result.get('max_depth_km');
-        latestDepthMap = result.get('depth_map_km').toJs();
+        latestDepthMap = Float32Array.from(depthMapProxy.toJs());
 
-        drawFloodDepth(latestDepthMap, sourceImageData.width, sourceImageData.height);
+        drawFloodDepth(latestDepthMap, sourceWidth, sourceHeight);
+
+        depthMapProxy.destroy();
+        result.destroy();
+        pyodide.globals.delete('gray_values_js');
+        pyodide.globals.delete('rows_js');
+        pyodide.globals.delete('cols_js');
 
         stats.textContent = [
           `Solved water level: ${seaLevel.toFixed(4)} km (relative to map's elevation scale)`,
@@ -397,6 +415,11 @@ result
         pyStatus.textContent = 'Done';
         pyStatus.classList.add('ready');
       } catch (err) {
+        try {
+          pyodide.globals.delete('gray_values_js');
+          pyodide.globals.delete('rows_js');
+          pyodide.globals.delete('cols_js');
+        } catch {}
         pyStatus.textContent = 'Python processing failed';
         pyStatus.classList.add('warn');
         stats.textContent = String(err);
