@@ -151,6 +151,8 @@ LOWER_FIXED_BOUND = mp.mpf('1e-10')
 UPPER_FIXED_BOUND = mp.mpf('1e15')
 INT_TOL = mp.power(10, -20)
 ROUND_SCALE = mp.power(10, DECIMAL_PLACES)
+OVERFLOW_BOUND = mp.mpf('1e1000')
+UNDERFLOW_BOUND = mp.mpf('1e-1000')
 
 def _use_fixed(abs_val):
     return abs_val > LOWER_FIXED_BOUND and abs_val < UPPER_FIXED_BOUND
@@ -211,7 +213,7 @@ def _fmt_fixed(z):
 def fmt(z):
     # handle inf/overflow
     try:
-        if mp.isinf(z) or abs(z) > mp.mpf('1e300'):
+        if mp.isinf(z) or abs(z) > OVERFLOW_BOUND:
             return '∞̃'
     except Exception:
         return '∞̃'
@@ -242,14 +244,24 @@ def fmt(z):
                 abs_val = None
             if abs_val is None:
                 return _fmt_fixed(val)
+            if abs_val < UNDERFLOW_BOUND:
+                return '0'
             return _fmt_fixed(val) if _use_fixed(abs_val) else _fmt_sci(val)
         # both parts possibly need different formatting
         re_abs = abs(re)
         im_abs = abs(im)
-        re_s = _fmt_fixed(re) if (re_abs == 0 or _use_fixed(re_abs)) else _fmt_sci(re)
-        im_s = _fmt_fixed(im_abs) if (im_abs == 0 or _use_fixed(im_abs)) else _fmt_sci(im_abs)
+        if re_abs < UNDERFLOW_BOUND:
+            re_s = '0'
+        else:
+            re_s = _fmt_fixed(re) if (re_abs == 0 or _use_fixed(re_abs)) else _fmt_sci(re)
+        if im_abs < UNDERFLOW_BOUND:
+            im_s = '0'
+        else:
+            im_s = _fmt_fixed(im_abs) if (im_abs == 0 or _use_fixed(im_abs)) else _fmt_sci(im_abs)
         re_s = _normalize_zero_string(re_s)
         im_s = _normalize_zero_string(im_s)
+        if re_s == '0' and im_s == '0':
+            return '0'
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
         return f"{re_s}{sign}{im_s}i"
 
@@ -270,6 +282,8 @@ def fmt(z):
 
     if abs_z is None:
         return _fmt_fixed(z)
+    if abs_z < UNDERFLOW_BOUND:
+        return '0'
     return _fmt_fixed(z) if _use_fixed(abs_z) else _fmt_sci(z)
 
 # ----- parsing & helpers -----
