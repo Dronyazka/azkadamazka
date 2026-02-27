@@ -89,6 +89,30 @@
       image-rendering: pixelated;
       background: #020712;
     }
+    .display-controls {
+      margin-top: 0.8rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .display-controls fieldset {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 10px;
+      margin: 0;
+      padding: 0.45rem 0.7rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      min-width: 280px;
+    }
+    .display-controls legend {
+      padding: 0 0.35rem;
+      color: var(--text);
+    }
+    .display-controls label { display: inline-flex; align-items: center; gap: 0.3rem; }
     pre {
       margin: 0;
       background: #0b1325;
@@ -114,6 +138,15 @@
         <button id="processBtn" class="button" type="button" disabled>Process in Python</button>
         <span id="pyStatus" class="status">Loading Pyodide…</span>
       </div>
+
+      <div class="display-controls">
+        <fieldset>
+          <legend>Transparency</legend>
+          <label><input type="radio" name="transparency" value="none" checked /> None</label>
+          <label><input type="radio" name="transparency" value="land" /> Transparent land</label>
+          <label><input type="radio" name="transparency" value="sea" /> Transparent sea</label>
+        </fieldset>
+      </div>
     </section>
 
     <section class="grid">
@@ -123,7 +156,7 @@
       </figure>
       <figure>
         <canvas id="outputCanvas" width="1024" height="512"></canvas>
-        <figcaption>Flood result (blue = water depth, white = dry land)</figcaption>
+        <figcaption>Flood result (blue = water depth, white = dry land; selectable transparency)</figcaption>
       </figure>
     </section>
 
@@ -138,6 +171,7 @@
     const processBtn = document.getElementById('processBtn');
     const pyStatus = document.getElementById('pyStatus');
     const stats = document.getElementById('stats');
+    const transparencyInputs = document.querySelectorAll('input[name="transparency"]');
 
     const inputCanvas = document.getElementById('inputCanvas');
     const outputCanvas = document.getElementById('outputCanvas');
@@ -146,6 +180,7 @@
 
     let pyodide;
     let sourceImageData;
+    let latestDepthMap = null;
 
     const pythonModule = `
 import math
@@ -238,6 +273,11 @@ def process_height_map(gray_values, rows, cols):
       processBtn.disabled = false;
     }
 
+    function getTransparencyMode() {
+      const selected = document.querySelector('input[name="transparency"]:checked');
+      return selected ? selected.value : 'none';
+    }
+
     function drawImageToInputCanvas(img) {
       const targetWidth = 1024;
       const targetHeight = 512;
@@ -245,6 +285,8 @@ def process_height_map(gray_values, rows, cols):
       inCtx.drawImage(img, 0, 0, targetWidth, targetHeight);
       sourceImageData = inCtx.getImageData(0, 0, targetWidth, targetHeight);
       stats.textContent = 'Image loaded. Click "Process in Python".';
+      latestDepthMap = null;
+      outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     }
 
     function imageDataToGrayArray(imageData) {
@@ -258,24 +300,28 @@ def process_height_map(gray_values, rows, cols):
 
     function drawFloodDepth(depthMapKm, width, height) {
       let maxDepth = 0;
+      const transparencyMode = getTransparencyMode();
       for (let i = 0; i < depthMapKm.length; i += 1) {
         if (depthMapKm[i] > maxDepth) maxDepth = depthMapKm[i];
       }
+
       const img = outCtx.createImageData(width, height);
       for (let i = 0; i < depthMapKm.length; i += 1) {
         const depth = depthMapKm[i];
         const idx = i * 4;
-        if (depth <= 0) {
+        const isLand = depth <= 0;
+
+        if (isLand) {
           img.data[idx] = 245;
           img.data[idx + 1] = 245;
           img.data[idx + 2] = 245;
-          img.data[idx + 3] = 255;
+          img.data[idx + 3] = transparencyMode === 'land' ? 0 : 255;
         } else {
           const t = maxDepth > 0 ? Math.min(1, depth / maxDepth) : 0;
           img.data[idx] = Math.round(25 + 35 * (1 - t));
           img.data[idx + 1] = Math.round(75 + 80 * (1 - t));
           img.data[idx + 2] = Math.round(180 + 75 * t);
-          img.data[idx + 3] = 255;
+          img.data[idx + 3] = transparencyMode === 'sea' ? 0 : 255;
         }
       }
       outCtx.putImageData(img, 0, 0);
@@ -287,6 +333,14 @@ def process_height_map(gray_values, rows, cols):
       const img = new Image();
       img.onload = () => drawImageToInputCanvas(img);
       img.src = URL.createObjectURL(file);
+    });
+
+    transparencyInputs.forEach((input) => {
+      input.addEventListener('change', () => {
+        if (latestDepthMap && sourceImageData) {
+          drawFloodDepth(latestDepthMap, sourceImageData.width, sourceImageData.height);
+        }
+      });
     });
 
     processBtn.addEventListener('click', async () => {
@@ -314,9 +368,9 @@ result
         const target = result.get('target_km3');
         const floodedFrac = result.get('flooded_fraction');
         const maxDepth = result.get('max_depth_km');
-        const depthMap = result.get('depth_map_km').toJs();
+        latestDepthMap = result.get('depth_map_km').toJs();
 
-        drawFloodDepth(depthMap, sourceImageData.width, sourceImageData.height);
+        drawFloodDepth(latestDepthMap, sourceImageData.width, sourceImageData.height);
 
         stats.textContent = [
           `Solved water level: ${seaLevel.toFixed(4)} km (relative to map's elevation scale)`,
