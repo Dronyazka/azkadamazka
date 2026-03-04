@@ -460,7 +460,17 @@ def ulgenes_direct(x):
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
-    # requested UI behavior: for negative real input, output = 1/Λ(abs(input))
+    # At real integers, force factorial-compatible values:
+    #   n > 0  -> n!
+    #   n < 0  -> 1/|n|!
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        n = int(mp.re(x))
+        if n > 0:
+            return mp.factorial(n)
+        if n < 0:
+            return 1 / mp.factorial(abs(n))
+
+    # For negative non-integers, keep reciprocal symmetry behavior.
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
         base = ulgenes_direct(abs(mp.re(x)))
         if mp.isnan(base):
