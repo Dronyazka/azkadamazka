@@ -310,6 +310,19 @@ def is_exact_real_integer(x):
     except Exception:
         return False
 
+def is_positive_real_integer(x):
+    return (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) > 0
+
+def is_exact_real_half_integer(x):
+    if isinstance(x, mpc):
+        return False
+    try:
+        r = mp.re(x)
+        two_r = 2 * r
+        return (two_r == mp.mpf(int(two_r))) and (r != mp.mpf(int(r)))
+    except Exception:
+        return False
+
 def symmetric_limit(func, x, eps=None):
     if eps is None:
         eps = mp.power(10, -30)
@@ -329,6 +342,8 @@ def hadamard_direct(X):
     return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*mp.gamma(1 - X))
 
 def f_hadamard(x):
+    if is_positive_real_integer(x):
+        return mp.factorial(int(mp.re(x)))
     X = x + 1
     if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
         return symmetric_limit(hadamard_direct, X)
@@ -345,6 +360,8 @@ def luschny_L(x):
     return g * (1 - sinc * inner)
 
 def f_luschny(x):
+    if is_positive_real_integer(x):
+        return mp.factorial(int(mp.re(x)))
     if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) <= 0:
         return symmetric_limit(luschny_L, x)
     try:
@@ -357,9 +374,18 @@ def klimek_for_argument(A):
     return mp.gamma(A) * (1 + term * digamma(A))
 
 def f_klimek(x):
+    if is_positive_real_integer(x):
+        return mp.factorial(int(mp.re(x)))
+
+    # For real half-integers, use Γ(x+1) directly.
+    if (not isinstance(x, mpc)) and is_exact_real_half_integer(x):
+        try:
+            return mp.gamma(x + 1)
+        except Exception:
+            return mp.mpf('inf')
+
     A = x + 1
-    # force Klimek evaluation through its own formula path for real arguments
-    # (symmetric sampling avoids collapsing to direct gamma-only behavior)
+    # For other real values, keep Klimek's own formula path.
     if not isinstance(A, mpc):
         try:
             return symmetric_limit(klimek_for_argument, A)
