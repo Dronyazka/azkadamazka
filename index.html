@@ -30,9 +30,6 @@ input::placeholder{color:rgba(230,238,248,.45);}
 .label{font-weight:700;margin-bottom:6px;}
 .out{font-family:monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
 #errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
-.footer-link{width:100%;text-align:center;margin-top:8px;color:rgba(230,238,248,.85);font-weight:600;}
-.footer-link a{color:inherit;text-decoration:none;}
-.footer-link a:hover{text-decoration:underline;}
 @media(max-width:700px){ .page{padding:14px;} .op-card,.card{max-width:none;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
 </style>
 </head>
@@ -66,9 +63,6 @@ input::placeholder{color:rgba(230,238,248,.45);}
     <pre id="errorBox"></pre>
   </div>
 
-  <div class="footer-link">
-    <a href="https://github.com/Dronyazka/PseudogammaCalculator" target="_blank" rel="noopener noreferrer">GitHub</a>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
@@ -317,19 +311,6 @@ def is_exact_real_integer(x):
     except Exception:
         return False
 
-def is_positive_real_integer(x):
-    return (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) > 0
-
-def is_exact_real_half_integer(x):
-    if isinstance(x, mpc):
-        return False
-    try:
-        r = mp.re(x)
-        two_r = 2 * r
-        return (two_r == mp.mpf(int(two_r))) and (r != mp.mpf(int(r)))
-    except Exception:
-        return False
-
 def symmetric_limit(func, x, eps=None):
     if eps is None:
         eps = mp.power(10, -30)
@@ -349,8 +330,6 @@ def hadamard_direct(X):
     return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*mp.gamma(1 - X))
 
 def f_hadamard(x):
-    if is_positive_real_integer(x):
-        return mp.factorial(int(mp.re(x)))
     X = x + 1
     if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
         return symmetric_limit(hadamard_direct, X)
@@ -367,8 +346,6 @@ def luschny_L(x):
     return g * (1 - sinc * inner)
 
 def f_luschny(x):
-    if is_positive_real_integer(x):
-        return mp.factorial(int(mp.re(x)))
     if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) <= 0:
         return symmetric_limit(luschny_L, x)
     try:
@@ -381,18 +358,9 @@ def klimek_for_argument(A):
     return mp.gamma(A) * (1 + term * digamma(A))
 
 def f_klimek(x):
-    if is_positive_real_integer(x):
-        return mp.factorial(int(mp.re(x)))
-
-    # For real half-integers, use Γ(x+1) directly.
-    if (not isinstance(x, mpc)) and is_exact_real_half_integer(x):
-        try:
-            return mp.gamma(x + 1)
-        except Exception:
-            return mp.mpf('inf')
-
     A = x + 1
-    # For other real values, keep Klimek's own formula path.
+    # force Klimek evaluation through its own formula path for real arguments
+    # (symmetric sampling avoids collapsing to direct gamma-only behavior)
     if not isinstance(A, mpc):
         try:
             return symmetric_limit(klimek_for_argument, A)
@@ -493,17 +461,7 @@ def ulgenes_direct(x):
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
-    # At real integers, force factorial-compatible values:
-    #   n > 0  -> n!
-    #   n < 0  -> 1/|n|!
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
-        n = int(mp.re(x))
-        if n > 0:
-            return mp.factorial(n)
-        if n < 0:
-            return 1 / mp.factorial(abs(n))
-
-    # For negative non-integers, keep reciprocal symmetry behavior.
+    # requested UI behavior: for negative real input, output = 1/Λ(abs(input))
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
         base = ulgenes_direct(abs(mp.re(x)))
         if mp.isnan(base):
@@ -522,6 +480,32 @@ f_map = {
     'klimek': f_klimek,
     'ulgenes': ulgenes_direct
 }
+
+def _is_bad(v):
+    return mp.isnan(v) or mp.isinf(v)
+
+def _comb_value(f, x, y, op):
+    if op == 'pr':
+        return f(x) / f(x - y)
+    return f(x) / (f(y) * f(x - y))
+
+def _two_arg_limit(f, x, y, op, eps=None):
+    if eps is None:
+        eps = mp.power(10, -20)
+    vals = []
+    for sx in (1, -1):
+        for sy in (1, -1):
+            try:
+                xv = x + sx * eps
+                yv = y + sy * eps
+                vv = _comb_value(f, xv, yv, op)
+                if not _is_bad(vv):
+                    vals.append(vv)
+            except Exception:
+                pass
+    if not vals:
+        return mp.mpf('inf')
+    return sum(vals) / len(vals)
 
 # ----- exposed helpers to JS -----
 def compute_partial(x_str, y_str, op):
@@ -550,21 +534,19 @@ def compute_partial(x_str, y_str, op):
             if op == 'fact':
                 val = f(x)
             elif op == 'pr':
-                num = f(x); den = f(x - y)
-                if mp.isinf(num) or mp.isnan(num):
+                try:
+                    val = _comb_value(f, x, y, 'pr')
+                except Exception:
                     val = mp.mpf('inf')
-                elif mp.isinf(den) or mp.isnan(den):
-                    val = mp.mpf('0')
-                else:
-                    val = num/den
+                if _is_bad(val):
+                    val = _two_arg_limit(f, x, y, 'pr')
             elif op == 'cr':
-                num = f(x); den1 = f(y); den2 = f(x - y)
-                if mp.isinf(num) or mp.isnan(num):
+                try:
+                    val = _comb_value(f, x, y, 'cr')
+                except Exception:
                     val = mp.mpf('inf')
-                elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                    val = mp.mpf('0')
-                else:
-                    val = num/(den1*den2)
+                if _is_bad(val):
+                    val = _two_arg_limit(f, x, y, 'cr')
             else:
                 val = mp.mpf('inf')
         except Exception:
@@ -597,25 +579,20 @@ def compute_ulgenes(x_str, y_str, op):
 
     try:
         if op == 'pr':
-            num = ulgenes_for_input(x)
-            den = ulgenes_for_input(x - y)
-            if mp.isinf(num) or mp.isnan(num):
+            try:
+                val = _comb_value(ulgenes_for_input, x, y, 'pr')
+            except Exception:
                 val = mp.mpf('inf')
-            elif mp.isinf(den) or mp.isnan(den):
-                val = mp.mpf('0')
-            else:
-                val = num/den
+            if _is_bad(val):
+                val = _two_arg_limit(ulgenes_for_input, x, y, 'pr')
             return (fmt(val), is_pos)
         elif op == 'cr':
-            num = ulgenes_for_input(x)
-            den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x - y)
-            if mp.isinf(num) or mp.isnan(num):
+            try:
+                val = _comb_value(ulgenes_for_input, x, y, 'cr')
+            except Exception:
                 val = mp.mpf('inf')
-            elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                val = mp.mpf('0')
-            else:
-                val = num/(den1*den2)
+            if _is_bad(val):
+                val = _two_arg_limit(ulgenes_for_input, x, y, 'cr')
             return (fmt(val), is_pos)
     except Exception:
         return ("ERROR", is_pos)
