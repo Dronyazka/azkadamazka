@@ -489,6 +489,9 @@ def _comb_value(f, x, y, op):
         return f(x) / f(x - y)
     return f(x) / (f(y) * f(x - y))
 
+def _is_negative_real_integer(x):
+    return (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) < 0
+
 def _two_arg_limit(f, x, y, op, eps=None):
     if eps is None:
         eps = mp.power(10, -20)
@@ -534,19 +537,41 @@ def compute_partial(x_str, y_str, op):
             if op == 'fact':
                 val = f(x)
             elif op == 'pr':
-                try:
-                    val = _comb_value(f, x, y, 'pr')
-                except Exception:
-                    val = mp.mpf('inf')
-                if _is_bad(val):
-                    val = _two_arg_limit(f, x, y, 'pr')
+                if nm == 'gamma' and _is_negative_real_integer(y):
+                    val = mp.mpf('0')
+                elif nm == 'gamma':
+                    try:
+                        val = _comb_value(f, x, y, 'pr')
+                    except Exception:
+                        val = mp.mpf('inf')
+                    if _is_bad(val):
+                        val = _two_arg_limit(f, x, y, 'pr')
+                else:
+                    num = f(x); den = f(x - y)
+                    if mp.isinf(num) or mp.isnan(num):
+                        val = mp.mpf('inf')
+                    elif mp.isinf(den) or mp.isnan(den):
+                        val = mp.mpf('0')
+                    else:
+                        val = num/den
             elif op == 'cr':
-                try:
-                    val = _comb_value(f, x, y, 'cr')
-                except Exception:
-                    val = mp.mpf('inf')
-                if _is_bad(val):
-                    val = _two_arg_limit(f, x, y, 'cr')
+                if nm == 'gamma' and _is_negative_real_integer(y):
+                    val = mp.mpf('0')
+                elif nm == 'gamma':
+                    try:
+                        val = _comb_value(f, x, y, 'cr')
+                    except Exception:
+                        val = mp.mpf('inf')
+                    if _is_bad(val):
+                        val = _two_arg_limit(f, x, y, 'cr')
+                else:
+                    num = f(x); den1 = f(y); den2 = f(x - y)
+                    if mp.isinf(num) or mp.isnan(num):
+                        val = mp.mpf('inf')
+                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
+                        val = mp.mpf('0')
+                    else:
+                        val = num/(den1*den2)
             else:
                 val = mp.mpf('inf')
         except Exception:
@@ -579,20 +604,25 @@ def compute_ulgenes(x_str, y_str, op):
 
     try:
         if op == 'pr':
-            try:
-                val = _comb_value(ulgenes_for_input, x, y, 'pr')
-            except Exception:
+            num = ulgenes_for_input(x)
+            den = ulgenes_for_input(x - y)
+            if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
-            if _is_bad(val):
-                val = _two_arg_limit(ulgenes_for_input, x, y, 'pr')
+            elif mp.isinf(den) or mp.isnan(den):
+                val = mp.mpf('0')
+            else:
+                val = num/den
             return (fmt(val), is_pos)
         elif op == 'cr':
-            try:
-                val = _comb_value(ulgenes_for_input, x, y, 'cr')
-            except Exception:
+            num = ulgenes_for_input(x)
+            den1 = ulgenes_for_input(y)
+            den2 = ulgenes_for_input(x - y)
+            if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
-            if _is_bad(val):
-                val = _two_arg_limit(ulgenes_for_input, x, y, 'cr')
+            elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
+                val = mp.mpf('0')
+            else:
+                val = num/(den1*den2)
             return (fmt(val), is_pos)
     except Exception:
         return ("ERROR", is_pos)
