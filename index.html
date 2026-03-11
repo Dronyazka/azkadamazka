@@ -489,8 +489,10 @@ def _comb_value(f, x, y, op):
         return f(x) / f(x - y)
     return f(x) / (f(y) * f(x - y))
 
-def _is_negative_real_integer(x):
-    return (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) < 0
+def _int_if_real_integer(x):
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        return int(mp.re(x))
+    return None
 
 def _two_arg_limit(f, x, y, op, eps=None):
     if eps is None:
@@ -537,15 +539,20 @@ def compute_partial(x_str, y_str, op):
             if op == 'fact':
                 val = f(x)
             elif op == 'pr':
-                if nm == 'gamma' and _is_negative_real_integer(y):
-                    val = mp.mpf('0')
-                elif nm == 'gamma':
-                    try:
-                        val = _comb_value(f, x, y, 'pr')
-                    except Exception:
+                if nm == 'gamma':
+                    n_int = _int_if_real_integer(x)
+                    r_int = _int_if_real_integer(y)
+                    if (n_int is not None) and (r_int is not None) and (0 <= n_int < r_int):
+                        val = mp.mpf('0')
+                    elif (n_int is not None) and (r_int is not None) and (r_int <= n_int <= -1):
                         val = mp.mpf('inf')
-                    if _is_bad(val):
-                        val = _two_arg_limit(f, x, y, 'pr')
+                    else:
+                        try:
+                            val = _comb_value(f, x, y, 'pr')
+                        except Exception:
+                            val = mp.mpf('inf')
+                        if _is_bad(val):
+                            val = _two_arg_limit(f, x, y, 'pr')
                 else:
                     num = f(x); den = f(x - y)
                     if mp.isinf(num) or mp.isnan(num):
@@ -555,15 +562,24 @@ def compute_partial(x_str, y_str, op):
                     else:
                         val = num/den
             elif op == 'cr':
-                if nm == 'gamma' and _is_negative_real_integer(y):
-                    val = mp.mpf('0')
-                elif nm == 'gamma':
-                    try:
-                        val = _comb_value(f, x, y, 'cr')
-                    except Exception:
-                        val = mp.mpf('inf')
-                    if _is_bad(val):
-                        val = _two_arg_limit(f, x, y, 'cr')
+                if nm == 'gamma':
+                    n_int = _int_if_real_integer(x)
+                    r_int = _int_if_real_integer(y)
+                    if (n_int is not None) and (r_int is not None) and (
+                        (0 <= n_int < r_int) or
+                        (n_int >= 0 and r_int < 0) or
+                        (n_int < r_int < 0)
+                    ):
+                        val = mp.mpf('0')
+                    else:
+                        try:
+                            val = _comb_value(f, x, y, 'cr')
+                        except Exception:
+                            val = mp.mpf('inf')
+                        if _is_bad(val):
+                            val = _two_arg_limit(f, x, y, 'cr')
+                        if _is_bad(val):
+                            val = mp.mpf('0')
                 else:
                     num = f(x); den1 = f(y); den2 = f(x - y)
                     if mp.isinf(num) or mp.isnan(num):
