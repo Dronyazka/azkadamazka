@@ -494,6 +494,11 @@ def _int_if_real_integer(x):
         return int(mp.re(x))
     return None
 
+def _has_gamma_pole_on_shifted_arg(v):
+    # True when v + 1 is a non-positive integer (i.e., v is integer <= -1)
+    vi = _int_if_real_integer(v)
+    return (vi is not None) and (vi <= -1)
+
 def _two_arg_limit(f, x, y, op, eps=None):
     if eps is None:
         eps = mp.power(10, -20)
@@ -540,12 +545,14 @@ def compute_partial(x_str, y_str, op):
                 val = f(x)
             elif op == 'pr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x)
-                    r_int = _int_if_real_integer(y)
-                    if (n_int is not None) and (r_int is not None) and (0 <= n_int < r_int):
-                        val = mp.mpf('0')
-                    elif (n_int is not None) and (r_int is not None) and (r_int <= n_int <= -1):
+                    num_pole = _has_gamma_pole_on_shifted_arg(x)
+                    den_pole = _has_gamma_pole_on_shifted_arg(x - y)
+
+                    # nPr: ∞̃ when numerator pole is uncancelled, 0 when denominator has pole and numerator is finite.
+                    if num_pole and (not den_pole):
                         val = mp.mpf('inf')
+                    elif den_pole and (not num_pole):
+                        val = mp.mpf('0')
                     else:
                         try:
                             val = _comb_value(f, x, y, 'pr')
@@ -563,13 +570,14 @@ def compute_partial(x_str, y_str, op):
                         val = num/den
             elif op == 'cr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x)
-                    r_int = _int_if_real_integer(y)
-                    if (n_int is not None) and (r_int is not None) and (
-                        (0 <= n_int < r_int) or
-                        (n_int >= 0 and r_int < 0) or
-                        (n_int < r_int < 0)
-                    ):
+                    num_pole = _has_gamma_pole_on_shifted_arg(x)
+                    den1_pole = _has_gamma_pole_on_shifted_arg(y)
+                    den2_pole = _has_gamma_pole_on_shifted_arg(x - y)
+
+                    # nCr: ∞̃ for uncancelled numerator pole; 0 when denominator has pole and numerator is finite.
+                    if num_pole and (not den1_pole) and (not den2_pole):
+                        val = mp.mpf('inf')
+                    elif (den1_pole or den2_pole) and (not num_pole):
                         val = mp.mpf('0')
                     else:
                         try:
@@ -578,8 +586,6 @@ def compute_partial(x_str, y_str, op):
                             val = mp.mpf('inf')
                         if _is_bad(val):
                             val = _two_arg_limit(f, x, y, 'cr')
-                        if _is_bad(val):
-                            val = mp.mpf('0')
                 else:
                     num = f(x); den1 = f(y); den2 = f(x - y)
                     if mp.isinf(num) or mp.isnan(num):
