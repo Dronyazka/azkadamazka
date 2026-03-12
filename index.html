@@ -545,14 +545,26 @@ def compute_partial(x_str, y_str, op):
                 val = f(x)
             elif op == 'pr':
                 if nm == 'gamma':
-                    num_pole = _has_gamma_pole_on_shifted_arg(x)
-                    den_pole = _has_gamma_pole_on_shifted_arg(x - y)
+                    n_int = _int_if_real_integer(x)
+                    r_int = _int_if_real_integer(y)
 
-                    # nPr: ∞̃ when numerator pole is uncancelled, 0 when denominator has pole and numerator is finite.
-                    if num_pole and (not den_pole):
-                        val = mp.mpf('inf')
-                    elif den_pole and (not num_pole):
-                        val = mp.mpf('0')
+                    # Special pole rules apply only when BOTH n and r are integers.
+                    if (n_int is not None) and (r_int is not None):
+                        num_pole = _has_gamma_pole_on_shifted_arg(x)
+                        den_pole = _has_gamma_pole_on_shifted_arg(x - y)
+
+                        # nPr: ∞̃ when numerator pole is uncancelled, 0 when denominator has pole and numerator is finite.
+                        if num_pole and (not den_pole):
+                            val = mp.mpf('inf')
+                        elif den_pole and (not num_pole):
+                            val = mp.mpf('0')
+                        else:
+                            try:
+                                val = _comb_value(f, x, y, 'pr')
+                            except Exception:
+                                val = mp.mpf('inf')
+                            if _is_bad(val):
+                                val = _two_arg_limit(f, x, y, 'pr')
                     else:
                         try:
                             val = _comb_value(f, x, y, 'pr')
@@ -570,15 +582,31 @@ def compute_partial(x_str, y_str, op):
                         val = num/den
             elif op == 'cr':
                 if nm == 'gamma':
-                    num_pole = _has_gamma_pole_on_shifted_arg(x)
-                    den1_pole = _has_gamma_pole_on_shifted_arg(y)
-                    den2_pole = _has_gamma_pole_on_shifted_arg(x - y)
+                    n_int = _int_if_real_integer(x)
+                    r_int = _int_if_real_integer(y)
 
-                    # nCr: ∞̃ for uncancelled numerator pole; 0 when denominator has pole and numerator is finite.
-                    if num_pole and (not den1_pole) and (not den2_pole):
-                        val = mp.mpf('inf')
-                    elif (den1_pole or den2_pole) and (not num_pole):
-                        val = mp.mpf('0')
+                    # Special pole rules apply only when BOTH n and r are integers.
+                    if (n_int is not None) and (r_int is not None):
+                        # Requested override: if both n and r are negative integers, return 0.
+                        if (n_int < 0) and (r_int < 0):
+                            val = mp.mpf('0')
+                        else:
+                            num_pole = _has_gamma_pole_on_shifted_arg(x)
+                            den1_pole = _has_gamma_pole_on_shifted_arg(y)
+                            den2_pole = _has_gamma_pole_on_shifted_arg(x - y)
+
+                            # nCr: ∞̃ for uncancelled numerator pole; 0 when denominator has pole and numerator is finite.
+                            if num_pole and (not den1_pole) and (not den2_pole):
+                                val = mp.mpf('inf')
+                            elif (den1_pole or den2_pole) and (not num_pole):
+                                val = mp.mpf('0')
+                            else:
+                                try:
+                                    val = _comb_value(f, x, y, 'cr')
+                                except Exception:
+                                    val = mp.mpf('inf')
+                                if _is_bad(val):
+                                    val = _two_arg_limit(f, x, y, 'cr')
                     else:
                         try:
                             val = _comb_value(f, x, y, 'cr')
