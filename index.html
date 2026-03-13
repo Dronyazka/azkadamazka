@@ -21,7 +21,6 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .view-toggle{width:44px;height:44px;border:none;border-radius:10px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;position:absolute;right:0;top:50%;transform:translateY(-50%);}
 .opgroup{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;}
 .opgroup button{background:var(--accent);border:none;color:white;height:44px;padding:0 16px;font-weight:700;border-radius:8px;cursor:pointer;}
-#btnCr,#btnPr{width:92px;}
 .opgroup button.active{background:var(--accent-dark);}
 .card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;}
 .inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* prevents wrapping */
@@ -97,6 +96,23 @@ const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
 let viewMode = 'comb'; // 'comb' | 'fp'
+let secondaryBtnWidthPx = null;
+
+function measureFpSecondaryWidth(){
+  const prev = btnPr.innerHTML;
+  btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+  const w = Math.ceil(btnPr.getBoundingClientRect().width);
+  btnPr.innerHTML = prev;
+  return w;
+}
+
+function applySecondaryButtonWidth(){
+  if(secondaryBtnWidthPx === null){
+    secondaryBtnWidthPx = measureFpSecondaryWidth();
+  }
+  btnCr.style.width = `${secondaryBtnWidthPx}px`;
+  btnPr.style.width = `${secondaryBtnWidthPx}px`;
+}
 
 function updateViewUI(){
   if(viewMode === 'comb'){
@@ -112,6 +128,7 @@ function updateViewUI(){
     btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
     viewToggle.textContent = '<';
   }
+  applySecondaryButtonWidth();
 }
 
 function setMode(mode){
