@@ -65,10 +65,10 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function (argument shifted by +1)</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma function</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard's gamma function</div><div id="outHad" class="out">—</div></div>
     <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K-function (argument shifted by +1)</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek's K-function</div><div id="outKli" class="out">—</div></div>
     <div class="box"><div class="label">Ulgenes' lambda function</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
@@ -179,7 +179,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
    - compute_partial and compute_ulgenes functions exposed
 */
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf
 import math
 mp.dps = 250
 
@@ -280,7 +280,7 @@ def _fmt_fixed(z):
         return '0'
     return _normalize_zero_string(s)
 def fmt(z):
-    # handle inf/overflow
+    # handle inf/overflow (inclusive finite range: -1e1000 <= z <= 1e1000)
     try:
         if mp.isinf(z) or abs(z) > OVERFLOW_BOUND:
             return '∞̃'
@@ -625,33 +625,15 @@ def compute_partial(x_str, y_str, op):
                 val = f(x_eff)
             elif op_eff == 'pr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x_eff)
-                    r_int = _int_if_real_integer(y)
-
-                    # Special pole rules apply only when BOTH n and r are integers.
-                    if (n_int is not None) and (r_int is not None):
-                        num_pole = _has_gamma_pole_on_shifted_arg(x_eff)
-                        den_pole = _has_gamma_pole_on_shifted_arg(x_eff - y)
-
-                        # nPr: ∞̃ when numerator pole is uncancelled, 0 when denominator has pole and numerator is finite.
-                        if num_pole and (not den_pole):
-                            val = mp.mpf('inf')
-                        elif den_pole and (not num_pole):
-                            val = mp.mpf('0')
+                    try:
+                        # Combinatorics nPr and FP (x)_n use falling factorial.
+                        # FP x^(n) uses rising factorial via op='pr_rise'.
+                        if op == 'pr_rise':
+                            val = rf(x, y)
                         else:
-                            try:
-                                val = _comb_value(f, x_eff, y, 'pr')
-                            except Exception:
-                                val = mp.mpf('inf')
-                            if _is_bad(val):
-                                val = _two_arg_limit(f, x_eff, y, 'pr')
-                    else:
-                        try:
-                            val = _comb_value(f, x_eff, y, 'pr')
-                        except Exception:
-                            val = mp.mpf('inf')
-                        if _is_bad(val):
-                            val = _two_arg_limit(f, x_eff, y, 'pr')
+                            val = ff(x_eff, y)
+                    except Exception:
+                        val = mp.mpf('inf')
                 else:
                     num = f(x_eff); den = f(x_eff - y)
                     if mp.isinf(num) or mp.isnan(num):
@@ -662,38 +644,10 @@ def compute_partial(x_str, y_str, op):
                         val = num/den
             elif op_eff == 'cr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x_eff)
-                    r_int = _int_if_real_integer(y)
-
-                    # Special pole rules apply only when BOTH n and r are integers.
-                    if (n_int is not None) and (r_int is not None):
-                        # Requested override: if both n and r are negative integers, return 0.
-                        if (n_int < 0) and (r_int < 0):
-                            val = mp.mpf('0')
-                        else:
-                            num_pole = _has_gamma_pole_on_shifted_arg(x_eff)
-                            den1_pole = _has_gamma_pole_on_shifted_arg(y)
-                            den2_pole = _has_gamma_pole_on_shifted_arg(x_eff - y)
-
-                            # nCr: ∞̃ for uncancelled numerator pole; 0 when denominator has pole and numerator is finite.
-                            if num_pole and (not den1_pole) and (not den2_pole):
-                                val = mp.mpf('inf')
-                            elif (den1_pole or den2_pole) and (not num_pole):
-                                val = mp.mpf('0')
-                            else:
-                                try:
-                                    val = _comb_value(f, x_eff, y, 'cr')
-                                except Exception:
-                                    val = mp.mpf('inf')
-                                if _is_bad(val):
-                                    val = _two_arg_limit(f, x_eff, y, 'cr')
-                    else:
-                        try:
-                            val = _comb_value(f, x_eff, y, 'cr')
-                        except Exception:
-                            val = mp.mpf('inf')
-                        if _is_bad(val):
-                            val = _two_arg_limit(f, x_eff, y, 'cr')
+                    try:
+                        val = binomial(x_eff, y)
+                    except Exception:
+                        val = mp.mpf('inf')
                 else:
                     num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
                     if mp.isinf(num) or mp.isnan(num):
