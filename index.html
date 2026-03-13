@@ -280,9 +280,9 @@ def _fmt_fixed(z):
         return '0'
     return _normalize_zero_string(s)
 def fmt(z):
-    # handle inf/overflow (inclusive finite range: -1e1000 <= z <= 1e1000)
+    # handle inf/overflow
     try:
-        if mp.isinf(z) or abs(z) > OVERFLOW_BOUND:
+        if mp.isinf(z) or abs(z) >= OVERFLOW_BOUND:
             return '∞̃'
     except Exception:
         return '∞̃'
@@ -466,7 +466,7 @@ def _ulgenes_series_value(x):
     if key in _ul_cache:
         return _ul_cache[key]
 
-    max_n = 250
+    max_n = 180
     # absolute floor and small relative threshold
     abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
     # relative factor for stopping (terms negligible compared to accumulated sum)
@@ -529,7 +529,13 @@ def ulgenes_direct(x):
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
-    # requested UI behavior: for negative real input, output = 1/Λ(abs(input))
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        n = int(mp.re(x))
+        if n > 0:
+            return mp.factorial(n)
+        if n < 0:
+            return 1 / mp.factorial(-n)
+
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
         base = ulgenes_direct(abs(mp.re(x)))
         if mp.isnan(base):
