@@ -14,11 +14,11 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
 .page{min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg);}
 .page-title{margin:0;font-size:30px;line-height:1.2;text-align:center;font-weight:800;}
-.op-row{width:100%;max-width:900px;display:flex;gap:10px;align-items:stretch;}
-.op-card{flex:1;background:var(--card);padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;justify-content:center;}
+.op-row{width:100%;max-width:900px;}
+.op-card{width:100%;background:var(--card);padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;}
 .op-label{text-align:center;font-weight:700;opacity:.9;}
-.view-toggle{width:46px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;}
-.opgroup{display:flex;gap:8px}
+.view-toggle{width:44px;aspect-ratio:1/1;border:none;border-radius:10px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;}
+.opgroup{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
 .opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
 .card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;}
@@ -42,13 +42,13 @@ input::placeholder{color:rgba(230,238,248,.45);}
   <div class="op-row">
     <div class="op-card">
       <div id="opLabel" class="op-label">Combinatorics</div>
+      <button id="viewToggle" class="view-toggle" type="button" aria-label="Toggle operation view">&gt;</button>
       <div class="opgroup">
         <button id="btnFact" class="active" type="button"><i>n</i>!</button>
         <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
         <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
       </div>
     </div>
-    <button id="viewToggle" class="view-toggle" type="button" aria-label="Toggle operation view">&gt;</button>
   </div>
 
   <div class="card">
