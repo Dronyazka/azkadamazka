@@ -460,7 +460,7 @@ def _ulgenes_series_value(x):
             _ul_cache[key] = mp.mpf('inf')
             return _ul_cache[key]
 
-        if abs(term) < term_floor:
+        if n > 1 and abs(term) < term_floor:
             break
 
         R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
