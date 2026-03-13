@@ -440,11 +440,13 @@ def _ulgenes_series_value(x):
         return _ul_cache[key]
 
     term_floor = mp.power(10, -30)
-    max_n = 20000
+    x_mag = abs(mp.re(x)) if (not isinstance(x, mpc)) else abs(x)
+    max_n = max(180, int(mp.ceil(4 * x_mag + 180)))
     S = mp.mpf('0')
     top = x
+    n = 1
 
-    for n in range(1, max_n + 1):
+    while n <= max_n:
         _ensure_inner_cache(n)
         inner = _inner_cache[n]
         denom = mp.mpf(2*n - 1)
@@ -456,20 +458,21 @@ def _ulgenes_series_value(x):
 
         S = S + term
 
+        if abs(S) > mp.mpf('1e300'):
+            _ul_cache[key] = mp.mpf('inf')
+            return _ul_cache[key]
+
         if abs(term) < term_floor:
             break
 
         R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
         top = top * R
-
-        if abs(S) > mp.mpf('1e300'):
-            _ul_cache[key] = mp.mpf('inf')
-            return _ul_cache[key]
+        n += 1
 
     try:
-        val = mp.e**S
-    except Exception:
         val = mp.exp(S)
+    except Exception:
+        val = mp.mpf('inf')
 
     if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
         _ul_cache[key] = mp.mpf('inf')
