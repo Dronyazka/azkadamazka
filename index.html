@@ -14,7 +14,10 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
 .page{min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg);}
 .page-title{margin:0;font-size:30px;line-height:1.2;text-align:center;font-weight:800;}
-.op-card{width:100%;max-width:900px;background:var(--card);padding:12px;border-radius:12px;display:flex;justify-content:center;}
+.op-row{width:100%;max-width:900px;display:flex;gap:10px;align-items:stretch;}
+.op-card{flex:1;background:var(--card);padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;justify-content:center;}
+.op-label{text-align:center;font-weight:700;opacity:.9;}
+.view-toggle{width:46px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;}
 .opgroup{display:flex;gap:8px}
 .opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
@@ -30,18 +33,22 @@ input::placeholder{color:rgba(230,238,248,.45);}
 .label{font-weight:700;margin-bottom:6px;}
 .out{font-family:monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
 #errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
-@media(max-width:700px){ .page{padding:14px;} .op-card,.card{max-width:none;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
+@media(max-width:700px){ .page{padding:8px;} .op-row,.op-card,.card{max-width:none;width:100%;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
 </style>
 </head>
 <body>
 <div class="page">
   <h1 class="page-title">Pseudogamma Function Calculator</h1>
-  <div class="op-card">
-    <div class="opgroup">
-      <button id="btnFact" class="active" type="button"><i>n</i>!</button>
-      <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
-      <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
+  <div class="op-row">
+    <div class="op-card">
+      <div id="opLabel" class="op-label">Combinatorics</div>
+      <div class="opgroup">
+        <button id="btnFact" class="active" type="button"><i>n</i>!</button>
+        <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
+        <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
+      </div>
     </div>
+    <button id="viewToggle" class="view-toggle" type="button" aria-label="Toggle operation view">&gt;</button>
   </div>
 
   <div class="card">
@@ -71,6 +78,8 @@ input::placeholder{color:rgba(230,238,248,.45);}
 const btnFact = document.getElementById('btnFact');
 const btnPr   = document.getElementById('btnPr');
 const btnCr   = document.getElementById('btnCr');
+const opLabel = document.getElementById('opLabel');
+const viewToggle = document.getElementById('viewToggle');
 const inputsRow = document.getElementById('inputsRow');
 const xinput = document.getElementById('xinput');
 const yinput = document.getElementById('yinput');
@@ -83,11 +92,29 @@ const outUl = document.getElementById('outUl');
 const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
+let viewMode = 'comb'; // 'comb' | 'fp'
+
+function updateViewUI(){
+  if(viewMode === 'comb'){
+    opLabel.textContent = 'Combinatorics';
+    btnFact.innerHTML = '<i>n</i>!';
+    btnCr.innerHTML = '<i>n</i>C<i>r</i>';
+    btnPr.innerHTML = '<i>n</i>P<i>r</i>';
+    viewToggle.textContent = '>';
+  } else {
+    opLabel.textContent = 'Factorial Powers';
+    btnFact.innerHTML = '<i>n</i>!';
+    btnCr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
+    btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    viewToggle.textContent = '<';
+  }
+}
+
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr');
-  btnCr.classList.toggle('active', mode === 'cr');
+  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_fall');
+  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_rise');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
@@ -96,9 +123,26 @@ function setMode(mode){
     yinput.style.display = ''; yinput.disabled = false;
   }
 }
+
+function toggleViewMode(){
+  if(viewMode === 'comb'){
+    viewMode = 'fp';
+    if(operation === 'cr') operation = 'fp_rise';
+    else if(operation === 'pr') operation = 'fp_fall';
+  } else {
+    viewMode = 'comb';
+    if(operation === 'fp_rise') operation = 'cr';
+    else if(operation === 'fp_fall') operation = 'pr';
+  }
+  updateViewUI();
+  setMode(operation);
+}
+
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode('pr'));
-btnCr.addEventListener('click', ()=> setMode('cr'));
+btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_fall'));
+btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_rise'));
+viewToggle.addEventListener('click', toggleViewMode);
+updateViewUI();
 setMode('fact');
 
 function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
@@ -525,9 +569,21 @@ def compute_partial(x_str, y_str, op):
     except Exception as e:
         code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
         return (code, code, code, code, False)
-    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    x_eff = x
+    op_eff = op
 
-    if op in ('pr','cr'):
+    if op == 'pr_rise':
+        try:
+            y_tmp = parse_input(y_str)
+            x_eff = x + y_tmp - 1
+        except Exception as e:
+            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+            return (code, code, code, code, False)
+        op_eff = 'pr'
+
+    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
+
+    if op_eff in ('pr','cr'):
         try:
             y = parse_input(y_str)
         except Exception as e:
@@ -541,17 +597,17 @@ def compute_partial(x_str, y_str, op):
     for nm in names:
         f = f_map[nm]
         try:
-            if op == 'fact':
-                val = f(x)
-            elif op == 'pr':
+            if op_eff == 'fact':
+                val = f(x_eff)
+            elif op_eff == 'pr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x)
+                    n_int = _int_if_real_integer(x_eff)
                     r_int = _int_if_real_integer(y)
 
                     # Special pole rules apply only when BOTH n and r are integers.
                     if (n_int is not None) and (r_int is not None):
-                        num_pole = _has_gamma_pole_on_shifted_arg(x)
-                        den_pole = _has_gamma_pole_on_shifted_arg(x - y)
+                        num_pole = _has_gamma_pole_on_shifted_arg(x_eff)
+                        den_pole = _has_gamma_pole_on_shifted_arg(x_eff - y)
 
                         # nPr: ∞̃ when numerator pole is uncancelled, 0 when denominator has pole and numerator is finite.
                         if num_pole and (not den_pole):
@@ -560,29 +616,29 @@ def compute_partial(x_str, y_str, op):
                             val = mp.mpf('0')
                         else:
                             try:
-                                val = _comb_value(f, x, y, 'pr')
+                                val = _comb_value(f, x_eff, y, 'pr')
                             except Exception:
                                 val = mp.mpf('inf')
                             if _is_bad(val):
-                                val = _two_arg_limit(f, x, y, 'pr')
+                                val = _two_arg_limit(f, x_eff, y, 'pr')
                     else:
                         try:
-                            val = _comb_value(f, x, y, 'pr')
+                            val = _comb_value(f, x_eff, y, 'pr')
                         except Exception:
                             val = mp.mpf('inf')
                         if _is_bad(val):
-                            val = _two_arg_limit(f, x, y, 'pr')
+                            val = _two_arg_limit(f, x_eff, y, 'pr')
                 else:
-                    num = f(x); den = f(x - y)
+                    num = f(x_eff); den = f(x_eff - y)
                     if mp.isinf(num) or mp.isnan(num):
                         val = mp.mpf('inf')
                     elif mp.isinf(den) or mp.isnan(den):
                         val = mp.mpf('0')
                     else:
                         val = num/den
-            elif op == 'cr':
+            elif op_eff == 'cr':
                 if nm == 'gamma':
-                    n_int = _int_if_real_integer(x)
+                    n_int = _int_if_real_integer(x_eff)
                     r_int = _int_if_real_integer(y)
 
                     # Special pole rules apply only when BOTH n and r are integers.
@@ -591,9 +647,9 @@ def compute_partial(x_str, y_str, op):
                         if (n_int < 0) and (r_int < 0):
                             val = mp.mpf('0')
                         else:
-                            num_pole = _has_gamma_pole_on_shifted_arg(x)
+                            num_pole = _has_gamma_pole_on_shifted_arg(x_eff)
                             den1_pole = _has_gamma_pole_on_shifted_arg(y)
-                            den2_pole = _has_gamma_pole_on_shifted_arg(x - y)
+                            den2_pole = _has_gamma_pole_on_shifted_arg(x_eff - y)
 
                             # nCr: ∞̃ for uncancelled numerator pole; 0 when denominator has pole and numerator is finite.
                             if num_pole and (not den1_pole) and (not den2_pole):
@@ -602,20 +658,20 @@ def compute_partial(x_str, y_str, op):
                                 val = mp.mpf('0')
                             else:
                                 try:
-                                    val = _comb_value(f, x, y, 'cr')
+                                    val = _comb_value(f, x_eff, y, 'cr')
                                 except Exception:
                                     val = mp.mpf('inf')
                                 if _is_bad(val):
-                                    val = _two_arg_limit(f, x, y, 'cr')
+                                    val = _two_arg_limit(f, x_eff, y, 'cr')
                     else:
                         try:
-                            val = _comb_value(f, x, y, 'cr')
+                            val = _comb_value(f, x_eff, y, 'cr')
                         except Exception:
                             val = mp.mpf('inf')
                         if _is_bad(val):
-                            val = _two_arg_limit(f, x, y, 'cr')
+                            val = _two_arg_limit(f, x_eff, y, 'cr')
                 else:
-                    num = f(x); den1 = f(y); den2 = f(x - y)
+                    num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
                     if mp.isinf(num) or mp.isnan(num):
                         val = mp.mpf('inf')
                     elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
@@ -636,11 +692,23 @@ def compute_ulgenes(x_str, y_str, op):
     except Exception as e:
         code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
         return (code, False)
-    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    x_eff = x
+    op_eff = op
 
-    if op == 'fact':
+    if op == 'pr_rise':
         try:
-            val = ulgenes_for_input(x)
+            y_tmp = parse_input(y_str)
+            x_eff = x + y_tmp - 1
+        except Exception as e:
+            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+            return (code, False)
+        op_eff = 'pr'
+
+    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
+
+    if op_eff == 'fact':
+        try:
+            val = ulgenes_for_input(x_eff)
         except Exception:
             val = mp.mpf('inf')
         return (fmt(val), is_pos)
@@ -653,9 +721,9 @@ def compute_ulgenes(x_str, y_str, op):
         return (code, is_pos)
 
     try:
-        if op == 'pr':
-            num = ulgenes_for_input(x)
-            den = ulgenes_for_input(x - y)
+        if op_eff == 'pr':
+            num = ulgenes_for_input(x_eff)
+            den = ulgenes_for_input(x_eff - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den) or mp.isnan(den):
@@ -663,10 +731,10 @@ def compute_ulgenes(x_str, y_str, op):
             else:
                 val = num/den
             return (fmt(val), is_pos)
-        elif op == 'cr':
-            num = ulgenes_for_input(x)
+        elif op_eff == 'cr':
+            num = ulgenes_for_input(x_eff)
             den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x - y)
+            den2 = ulgenes_for_input(x_eff - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
@@ -728,7 +796,7 @@ async function compute(){
     outKli.textContent = err; outUl.textContent = err;
     return;
   }
-  if((operation === 'pr' || operation === 'cr') && sy === ''){
+  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_fall') && sy === ''){
     const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
     outKli.textContent = err; outUl.textContent = err;
@@ -740,7 +808,8 @@ async function compute(){
   try{
     pyodide.globals.set('x_in', sx);
     pyodide.globals.set('y_in', sy);
-    pyodide.globals.set('op_in', operation);
+    const opForCompute = (operation === 'fp_fall') ? 'pr' : (operation === 'fp_rise' ? 'pr_rise' : operation);
+    pyodide.globals.set('op_in', opForCompute);
 
     const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
     const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
