@@ -126,8 +126,8 @@ function updateViewUI(){
   } else {
     opLabel.textContent = 'Factorial Powers';
     btnFact.innerHTML = '<i>n</i>!';
-    btnCr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
-    btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    btnCr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    btnPr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
     viewToggle.textContent = '<';
     viewToggle.classList.add('left');
   }
@@ -137,8 +137,8 @@ function updateViewUI(){
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_fall');
-  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_rise');
+  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_rise');
+  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_fall');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
@@ -151,20 +151,20 @@ function setMode(mode){
 function toggleViewMode(){
   if(viewMode === 'comb'){
     viewMode = 'fp';
-    if(operation === 'cr') operation = 'fp_rise';
-    else if(operation === 'pr') operation = 'fp_fall';
+    if(operation === 'cr') operation = 'fp_fall';
+    else if(operation === 'pr') operation = 'fp_rise';
   } else {
     viewMode = 'comb';
-    if(operation === 'fp_rise') operation = 'cr';
-    else if(operation === 'fp_fall') operation = 'pr';
+    if(operation === 'fp_fall') operation = 'cr';
+    else if(operation === 'fp_rise') operation = 'pr';
   }
   updateViewUI();
   setMode(operation);
 }
 
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_fall'));
-btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_rise'));
+btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_rise'));
+btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_fall'));
 viewToggle.addEventListener('click', toggleViewMode);
 updateViewUI();
 setMode('fact');
