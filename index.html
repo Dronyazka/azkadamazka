@@ -19,6 +19,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .op-label{text-align:center;font-weight:700;opacity:.9;}
 .op-controls{width:100%;position:relative;display:flex;align-items:center;justify-content:center;}
 .view-toggle{width:44px;height:44px;border:none;border-radius:10px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;position:absolute;right:0;top:50%;transform:translateY(-50%);}
+.view-toggle.left{left:0;right:auto;}
 .opgroup{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;}
 .opgroup button{background:var(--accent);border:none;color:white;height:44px;padding:0 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
@@ -121,12 +122,14 @@ function updateViewUI(){
     btnCr.innerHTML = '<i>n</i>C<i>r</i>';
     btnPr.innerHTML = '<i>n</i>P<i>r</i>';
     viewToggle.textContent = '>';
+    viewToggle.classList.remove('left');
   } else {
     opLabel.textContent = 'Factorial Powers';
     btnFact.innerHTML = '<i>n</i>!';
-    btnCr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
-    btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    btnCr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    btnPr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
     viewToggle.textContent = '<';
+    viewToggle.classList.add('left');
   }
   applySecondaryButtonWidth();
 }
@@ -134,8 +137,8 @@ function updateViewUI(){
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_fall');
-  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_rise');
+  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_rise');
+  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_fall');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
@@ -148,20 +151,20 @@ function setMode(mode){
 function toggleViewMode(){
   if(viewMode === 'comb'){
     viewMode = 'fp';
-    if(operation === 'cr') operation = 'fp_rise';
-    else if(operation === 'pr') operation = 'fp_fall';
+    if(operation === 'cr') operation = 'fp_fall';
+    else if(operation === 'pr') operation = 'fp_rise';
   } else {
     viewMode = 'comb';
-    if(operation === 'fp_rise') operation = 'cr';
-    else if(operation === 'fp_fall') operation = 'pr';
+    if(operation === 'fp_fall') operation = 'cr';
+    else if(operation === 'fp_rise') operation = 'pr';
   }
   updateViewUI();
   setMode(operation);
 }
 
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_fall'));
-btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_rise'));
+btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_rise'));
+btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_fall'));
 viewToggle.addEventListener('click', toggleViewMode);
 updateViewUI();
 setMode('fact');
