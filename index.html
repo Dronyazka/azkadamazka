@@ -14,12 +14,17 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
 .page{min-height:100%;padding:32px;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--bg);}
 .page-title{margin:0;font-size:30px;line-height:1.2;text-align:center;font-weight:800;}
-.op-card{width:100%;max-width:900px;background:var(--card);padding:12px;border-radius:12px;display:flex;justify-content:center;}
-.opgroup{display:flex;gap:8px}
-.opgroup button{background:var(--accent);border:none;color:white;padding:10px 16px;font-weight:700;border-radius:8px;cursor:pointer;}
+.op-row{width:100%;max-width:900px;}
+.op-card{width:100%;background:var(--card);padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;}
+.op-label{text-align:center;font-weight:700;opacity:.9;}
+.op-controls{width:100%;position:relative;display:flex;align-items:center;justify-content:center;}
+.view-toggle{width:44px;height:44px;border:none;border-radius:10px;background:var(--accent);color:white;font-size:22px;font-weight:800;cursor:pointer;position:absolute;right:0;top:50%;transform:translateY(-50%);}
+.view-toggle.left{left:0;right:auto;}
+.opgroup{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;}
+.opgroup button{background:var(--accent);border:none;color:white;height:44px;padding:0 16px;font-weight:700;border-radius:8px;cursor:pointer;}
 .opgroup button.active{background:var(--accent-dark);}
 .card{width:100%;max-width:900px;background:var(--card);padding:18px;border-radius:12px;box-sizing:border-box;}
-.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} /* prevents wrapping */
+.inputs-row{display:flex;gap:10px;width:100%;flex-wrap:nowrap;} 
 .inputs-row.one input{width:100%;}
 .inputs-row.two input{width:50%;}
 input{height:44px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:var(--box);color:var(--text);font-size:16px;}
@@ -30,17 +35,23 @@ input::placeholder{color:rgba(230,238,248,.45);}
 .label{font-weight:700;margin-bottom:6px;}
 .out{font-family:monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
 #errorBox{display:none;margin-top:12px;background:#2b3440;padding:10px;border-radius:8px;color:#ffdede;}
-@media(max-width:700px){ .page{padding:14px;} .op-card,.card{max-width:none;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
+@media(max-width:700px){ .page{padding:8px;} .op-row,.op-card,.card{max-width:none;width:100%;} .inputs-row{flex-direction:row;} .inputs-row.two input{width:50%; min-width:0;} }
 </style>
 </head>
 <body>
 <div class="page">
   <h1 class="page-title">Pseudogamma Function Calculator</h1>
-  <div class="op-card">
-    <div class="opgroup">
-      <button id="btnFact" class="active" type="button"><i>n</i>!</button>
-      <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
-      <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
+  <div class="op-row">
+    <div class="op-card">
+      <div id="opLabel" class="op-label">Combinatorics</div>
+      <div class="op-controls">
+        <div class="opgroup">
+          <button id="btnFact" class="active" type="button"><i>n</i>!</button>
+          <button id="btnCr" type="button"><i>n</i>C<i>r</i></button>
+          <button id="btnPr" type="button"><i>n</i>P<i>r</i></button>
+        </div>
+        <button id="viewToggle" class="view-toggle" type="button" aria-label="Toggle operation view">&gt;</button>
+      </div>
     </div>
   </div>
 
@@ -54,22 +65,25 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function (argument shifted by +1)</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function (argument shifted by +1)</div><div id="outHad" class="out">—</div></div>
+    <div class="box"><div class="label">Euler gamma function</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Hadamard's gamma function</div><div id="outHad" class="out">—</div></div>
     <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K-function (argument shifted by +1)</div><div id="outKli" class="out">—</div></div>
+    <div class="box"><div class="label">Klimek's K-function</div><div id="outKli" class="out">—</div></div>
     <div class="box"><div class="label">Ulgenes' lambda function</div><div id="outUl" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 <script>
-/* UI wiring */
+
 const btnFact = document.getElementById('btnFact');
 const btnPr   = document.getElementById('btnPr');
 const btnCr   = document.getElementById('btnCr');
+const opLabel = document.getElementById('opLabel');
+const viewToggle = document.getElementById('viewToggle');
 const inputsRow = document.getElementById('inputsRow');
 const xinput = document.getElementById('xinput');
 const yinput = document.getElementById('yinput');
@@ -82,11 +96,49 @@ const outUl = document.getElementById('outUl');
 const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
+let viewMode = 'comb';
+let secondaryBtnWidthPx = null;
+
+function measureFpSecondaryWidth(){
+  const prev = btnPr.innerHTML;
+  btnPr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+  const w = Math.ceil(btnPr.getBoundingClientRect().width);
+  btnPr.innerHTML = prev;
+  return w;
+}
+
+function applySecondaryButtonWidth(){
+  if(secondaryBtnWidthPx === null){
+    secondaryBtnWidthPx = measureFpSecondaryWidth();
+  }
+  btnCr.style.width = `${secondaryBtnWidthPx}px`;
+  btnPr.style.width = `${secondaryBtnWidthPx}px`;
+}
+
+function updateViewUI(){
+  if(viewMode === 'comb'){
+    opLabel.textContent = 'Combinatorics';
+    btnFact.innerHTML = '<i>n</i>!';
+    btnCr.innerHTML = '<i>n</i>C<i>r</i>';
+    btnPr.innerHTML = '<i>n</i>P<i>r</i>';
+    viewToggle.textContent = '>';
+    viewToggle.classList.remove('left');
+  } else {
+    opLabel.textContent = 'Factorial Powers';
+    btnFact.innerHTML = '<i>n</i>!';
+    btnCr.innerHTML = '(<i>x</i>)<sub><i>n</i></sub>';
+    btnPr.innerHTML = '<i>x</i><sup>(<i>n</i>)</sup>';
+    viewToggle.textContent = '<';
+    viewToggle.classList.add('left');
+  }
+  applySecondaryButtonWidth();
+}
+
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr');
-  btnCr.classList.toggle('active', mode === 'cr');
+  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_rise');
+  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_fall');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
@@ -95,26 +147,35 @@ function setMode(mode){
     yinput.style.display = ''; yinput.disabled = false;
   }
 }
+
+function toggleViewMode(){
+  if(viewMode === 'comb'){
+    viewMode = 'fp';
+    if(operation === 'cr') operation = 'fp_fall';
+    else if(operation === 'pr') operation = 'fp_rise';
+  } else {
+    viewMode = 'comb';
+    if(operation === 'fp_fall') operation = 'cr';
+    else if(operation === 'fp_rise') operation = 'pr';
+  }
+  updateViewUI();
+  setMode(operation);
+}
+
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode('pr'));
-btnCr.addEventListener('click', ()=> setMode('cr'));
+btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_rise'));
+btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_fall'));
+viewToggle.addEventListener('click', toggleViewMode);
+updateViewUI();
 setMode('fact');
 
 function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
-/* ---------------- Python compute module (final improvements) ----------------
-   - mp.dps = 250
-   - explicit exponent computation drives fixed vs scientific output
-   - Ulgenes: inner k-sum cached via math.comb; ulgenes cache for memoization;
-     recurrence for top factor; relative+absolute stopping criteria
-   - compute_partial and compute_ulgenes functions exposed
-*/
-const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp
-import math
-mp.dps = 250
 
-# ----- digamma detection/fallback -----
+const pythonComputeModule = `
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf
+mp.dps = 128
+
 def _make_digamma():
     try:
         _ = mp.psi(mp.mpf('0.5'))
@@ -144,7 +205,6 @@ def _make_digamma():
 
 digamma = _make_digamma()
 
-# ----- formatting: explicit exponent decision -----
 DECIMAL_PLACES = 30
 SCI_SIG_DIGITS = 30
 LOWER_FIXED_BOUND = mp.mpf('1e-10')
@@ -169,7 +229,6 @@ def _round_decimal_places(z):
     return mp.nint(z * ROUND_SCALE) / ROUND_SCALE
 
 def _fmt_sci(z):
-    # scientific notation with 30-digit significand
     s = mp.nstr(z, SCI_SIG_DIGITS, min_fixed=0, max_fixed=0)
     return _normalize_zero_string(s)
 
@@ -202,7 +261,6 @@ def _sci_to_fixed(s):
     return out
 
 def _fmt_fixed(z):
-    # fixed-form string rounded to DECIMAL_PLACES, then trimmed
     s = mp.nstr(_round_decimal_places(z), DECIMAL_PLACES + 5, min_fixed=0)
     s = _sci_to_fixed(s)
     if '.' in s:
@@ -211,27 +269,22 @@ def _fmt_fixed(z):
         return '0'
     return _normalize_zero_string(s)
 def fmt(z):
-    # handle inf/overflow
     try:
-        if mp.isinf(z) or abs(z) > OVERFLOW_BOUND:
+        if mp.isinf(z) or abs(z) >= OVERFLOW_BOUND:
             return '∞̃'
     except Exception:
         return '∞̃'
 
-    # zero
     try:
         if z == 0:
             return '0'
     except Exception:
         pass
 
-    # complex
     if isinstance(z, mpc):
         re = mp.re(z); im = mp.im(z)
-        # tiny imaginary -> treat as real
         if abs(im) < mp.mpf('1e-25'):
             val = re
-            # integer check (avoid collapsing tiny nonzero values to 0)
             try:
                 nearest = int(mp.floor(val + mp.mpf('0.5')))
                 if abs(val) >= 1 and abs(val - nearest) <= INT_TOL and abs(val) < UPPER_FIXED_BOUND:
@@ -247,7 +300,6 @@ def fmt(z):
             if abs_val < UNDERFLOW_BOUND:
                 return '0'
             return _fmt_fixed(val) if _use_fixed(abs_val) else _fmt_sci(val)
-        # both parts possibly need different formatting
         re_abs = abs(re)
         im_abs = abs(im)
         if re_abs < UNDERFLOW_BOUND:
@@ -265,14 +317,11 @@ def fmt(z):
         sign = ' + ' if mp.sign(im) >= 0 else ' - '
         return f"{re_s}{sign}{im_s}i"
 
-    # real mpf
     try:
         abs_z = abs(z)
     except Exception:
         abs_z = None
 
-    # keep exact integer rendering only away from zero and below scientific cutoff
-    # (prevents tiny nonzero values from collapsing to "0" due to INT_TOL)
     try:
         nearest = int(mp.floor(z + mp.mpf('0.5')))
         if abs_z is not None and abs_z >= 1 and abs(z - nearest) <= INT_TOL and abs_z < UPPER_FIXED_BOUND:
@@ -286,7 +335,6 @@ def fmt(z):
         return '0'
     return _fmt_fixed(z) if _use_fixed(abs_z) else _fmt_sci(z)
 
-# ----- parsing & helpers -----
 def parse_input(s):
     s = s.strip()
     if s == '':
@@ -315,7 +363,6 @@ def symmetric_limit(func, x, eps=None):
         eps = mp.power(10, -30)
     return (func(x + eps) + func(x - eps)) / 2
 
-# ----- core functions (unchanged semantics) -----
 def f_gamma(x):
     targ = x + 1
     if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
@@ -358,8 +405,6 @@ def klimek_for_argument(A):
 
 def f_klimek(x):
     A = x + 1
-    # force Klimek evaluation through its own formula path for real arguments
-    # (symmetric sampling avoids collapsing to direct gamma-only behavior)
     if not isinstance(A, mpc):
         try:
             return symmetric_limit(klimek_for_argument, A)
@@ -370,9 +415,8 @@ def f_klimek(x):
     except Exception:
         return mp.mpf('inf')
 
-# ----- Ulgenes: cached + faster inner k-sums + relative stopping -----
-_inner_cache = [mp.mpf('0')]   # index 0 unused, inner_cache[n] = inner sum for that n
-_ul_cache = {}                 # memoization: key -> mp.mpf result
+_inner_cache = [mp.mpf('0')]
+_ul_cache = {}
 
 def _ensure_inner_cache(n_max):
     if len(_inner_cache) >= n_max + 1:
@@ -380,16 +424,14 @@ def _ensure_inner_cache(n_max):
     start = len(_inner_cache)
     for n in range(start, n_max + 1):
         inner = mp.mpf('0')
-        # integer comb via math.comb
         for k in range(1, n + 1):
             sign = -1 if ((n + k) % 2) else 1
-            coeff = mp.mpf(math.comb(2*n - 1, n - k))
+            coeff = binomial(2*n - 1, n - k)
             term_k = mp.mpf(2*k - 1) * coeff * mp.log(mp.mpf(k))
             inner += (-term_k if sign == -1 else term_k)
         _inner_cache.append(inner)
 
 def _ul_key(x):
-    # string key at modest precision to identify equal/similar inputs
     return mp.nstr(x, 40)
 
 def _ulgenes_series_value(x):
@@ -397,57 +439,36 @@ def _ulgenes_series_value(x):
     if key in _ul_cache:
         return _ul_cache[key]
 
-    max_n = 250
-    # absolute floor and small relative threshold
-    abs_floor = mp.power(10, -max(8, int(mp.dps/3)))
-    # relative factor for stopping (terms negligible compared to accumulated sum)
-    rel_factor = mp.power(10, -12)
+    with mp.workdps(64):
+        term_floor = mp.power(10, -30)
+        max_n = 256
+        S = mp.mpf('0')
+        top = x
+        n = 1
 
-    _ensure_inner_cache(max_n)
-    S = mp.mpf('0')
-    consec_small = 0
-    top = x  # C(x,1) = x
+        while n <= max_n:
+            _ensure_inner_cache(n)
+            inner = _inner_cache[n]
+            denom = mp.mpf(2*n - 1)
+            term = top * (inner / denom)
 
-    for n in range(1, max_n + 1):
-        inner = _inner_cache[n]
-        denom = mp.mpf(2*n - 1)
-        term = top * (inner / denom)
+            if mp.isnan(term) or mp.isinf(term):
+                _ul_cache[key] = mp.mpf('inf')
+                return _ul_cache[key]
 
-        if mp.isnan(term) or mp.isinf(term):
-            _ul_cache[key] = mp.mpf('inf')
-            return _ul_cache[key]
+            S = S + term
 
-        # update S
-        S = S + term
-
-        abs_term = abs(term)
-        # absolute stop
-        if abs_term < abs_floor:
-            consec_small += 1
-            if consec_small >= 4:
-                break
-        else:
-            consec_small = 0
-
-        # relative stop: if |term| < rel_factor * max(1,|S|)
-        if abs_term < rel_factor * max(mp.mpf(1), abs(S)):
-            # a few consecutive small relative terms -> stop
-            consec_small += 1
-            if consec_small >= 3:
+            if n > 1 and abs(term) < term_floor:
                 break
 
-        # recurrence update for top_{n+1}
-        R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
-        top = top * R
-
-        if abs(S) > mp.mpf('1e300'):
-            _ul_cache[key] = mp.mpf('inf')
-            return _ul_cache[key]
+            R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
+            top = top * R
+            n += 1
 
     try:
-        val = mp.e**S
+        val = mp.exp(+S)
     except Exception:
-        val = mp.exp(S)
+        val = mp.mpf('inf')
 
     if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
         _ul_cache[key] = mp.mpf('inf')
@@ -456,11 +477,16 @@ def _ulgenes_series_value(x):
     return _ul_cache[key]
 
 def ulgenes_direct(x):
-    # core Λ(x): always use exponentiated series definition
     return _ulgenes_series_value(x)
 
 def ulgenes_for_input(x):
-    # requested UI behavior: for negative real input, output = 1/Λ(abs(input))
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        n = int(mp.re(x))
+        if n > 0:
+            return mp.factorial(n)
+        if n < 0:
+            return 1 / mp.factorial(-n)
+
     if (not isinstance(x, mpc)) and (mp.re(x) < 0):
         base = ulgenes_direct(abs(mp.re(x)))
         if mp.isnan(base):
@@ -480,17 +506,63 @@ f_map = {
     'ulgenes': ulgenes_direct
 }
 
-# ----- exposed helpers to JS -----
+def _is_bad(v):
+    return mp.isnan(v) or mp.isinf(v)
+
+def _comb_value(f, x, y, op):
+    if op == 'pr':
+        return f(x) / f(x - y)
+    return f(x) / (f(y) * f(x - y))
+
+def _int_if_real_integer(x):
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        return int(mp.re(x))
+    return None
+
+def _has_gamma_pole_on_shifted_arg(v):
+    vi = _int_if_real_integer(v)
+    return (vi is not None) and (vi <= -1)
+
+def _two_arg_limit(f, x, y, op, eps=None):
+    if eps is None:
+        eps = mp.power(10, -20)
+    vals = []
+    for sx in (1, -1):
+        for sy in (1, -1):
+            try:
+                xv = x + sx * eps
+                yv = y + sy * eps
+                vv = _comb_value(f, xv, yv, op)
+                if not _is_bad(vv):
+                    vals.append(vv)
+            except Exception:
+                pass
+    if not vals:
+        return mp.mpf('inf')
+    return sum(vals) / len(vals)
+
 def compute_partial(x_str, y_str, op):
-    mp.dps = 250
+    mp.dps = 128
     try:
         x = parse_input(x_str)
     except Exception as e:
         code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
         return (code, code, code, code, False)
-    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    x_eff = x
+    op_eff = op
 
-    if op in ('pr','cr'):
+    if op == 'pr_rise':
+        try:
+            y_tmp = parse_input(y_str)
+            x_eff = x + y_tmp - 1
+        except Exception as e:
+            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+            return (code, code, code, code, False)
+        op_eff = 'pr'
+
+    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
+
+    if op_eff in ('pr','cr'):
         try:
             y = parse_input(y_str)
         except Exception as e:
@@ -504,24 +576,39 @@ def compute_partial(x_str, y_str, op):
     for nm in names:
         f = f_map[nm]
         try:
-            if op == 'fact':
-                val = f(x)
-            elif op == 'pr':
-                num = f(x); den = f(x - y)
-                if mp.isinf(num) or mp.isnan(num):
-                    val = mp.mpf('inf')
-                elif mp.isinf(den) or mp.isnan(den):
-                    val = mp.mpf('0')
+            if op_eff == 'fact':
+                val = f(x_eff)
+            elif op_eff == 'pr':
+                if nm == 'gamma':
+                    try:
+                        if op == 'pr_rise':
+                            val = rf(x, y)
+                        else:
+                            val = ff(x_eff, y)
+                    except Exception:
+                        val = mp.mpf('inf')
                 else:
-                    val = num/den
-            elif op == 'cr':
-                num = f(x); den1 = f(y); den2 = f(x - y)
-                if mp.isinf(num) or mp.isnan(num):
-                    val = mp.mpf('inf')
-                elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                    val = mp.mpf('0')
+                    num = f(x_eff); den = f(x_eff - y)
+                    if mp.isinf(num) or mp.isnan(num):
+                        val = mp.mpf('inf')
+                    elif mp.isinf(den) or mp.isnan(den):
+                        val = mp.mpf('0')
+                    else:
+                        val = num/den
+            elif op_eff == 'cr':
+                if nm == 'gamma':
+                    try:
+                        val = binomial(x_eff, y)
+                    except Exception:
+                        val = mp.mpf('inf')
                 else:
-                    val = num/(den1*den2)
+                    num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
+                    if mp.isinf(num) or mp.isnan(num):
+                        val = mp.mpf('inf')
+                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
+                        val = mp.mpf('0')
+                    else:
+                        val = num/(den1*den2)
             else:
                 val = mp.mpf('inf')
         except Exception:
@@ -530,22 +617,33 @@ def compute_partial(x_str, y_str, op):
     return tuple(outputs) + (bool(is_pos),)
 
 def compute_ulgenes(x_str, y_str, op):
-    mp.dps = 250
+    mp.dps = 128
     try:
         x = parse_input(x_str)
     except Exception as e:
         code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
         return (code, False)
-    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
+    x_eff = x
+    op_eff = op
 
-    if op == 'fact':
+    if op == 'pr_rise':
         try:
-            val = ulgenes_for_input(x)
+            y_tmp = parse_input(y_str)
+            x_eff = x + y_tmp - 1
+        except Exception as e:
+            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
+            return (code, False)
+        op_eff = 'pr'
+
+    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
+
+    if op_eff == 'fact':
+        try:
+            val = ulgenes_for_input(x_eff)
         except Exception:
             val = mp.mpf('inf')
         return (fmt(val), is_pos)
 
-    # pr/cr -> need y
     try:
         y = parse_input(y_str)
     except Exception as e:
@@ -553,9 +651,9 @@ def compute_ulgenes(x_str, y_str, op):
         return (code, is_pos)
 
     try:
-        if op == 'pr':
-            num = ulgenes_for_input(x)
-            den = ulgenes_for_input(x - y)
+        if op_eff == 'pr':
+            num = ulgenes_for_input(x_eff)
+            den = ulgenes_for_input(x_eff - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den) or mp.isnan(den):
@@ -563,10 +661,10 @@ def compute_ulgenes(x_str, y_str, op):
             else:
                 val = num/den
             return (fmt(val), is_pos)
-        elif op == 'cr':
-            num = ulgenes_for_input(x)
+        elif op_eff == 'cr':
+            num = ulgenes_for_input(x_eff)
             den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x - y)
+            den2 = ulgenes_for_input(x_eff - y)
             if mp.isinf(num) or mp.isnan(num):
                 val = mp.mpf('inf')
             elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
@@ -577,10 +675,9 @@ def compute_ulgenes(x_str, y_str, op):
     except Exception:
         return ("ERROR", is_pos)
 
-    return ("ERROR", is_pos)
-`;
+    return ("ERROR", is_pos)`;
 
-/* initialize pyodide and load mpmath + module */
+
 let pyodideReady = false;
 async function initPy(){
   try{
@@ -602,7 +699,7 @@ async function initPy(){
 }
 initPy();
 
-/* compute flow: evaluate all functions, then render together */
+
 computeBtn.addEventListener('click', compute);
 xinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
@@ -628,7 +725,7 @@ async function compute(){
     outKli.textContent = err; outUl.textContent = err;
     return;
   }
-  if((operation === 'pr' || operation === 'cr') && sy === ''){
+  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_fall') && sy === ''){
     const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
     outKli.textContent = err; outUl.textContent = err;
@@ -640,7 +737,8 @@ async function compute(){
   try{
     pyodide.globals.set('x_in', sx);
     pyodide.globals.set('y_in', sy);
-    pyodide.globals.set('op_in', operation);
+    const opForCompute = (operation === 'fp_fall') ? 'pr' : (operation === 'fp_rise' ? 'pr_rise' : operation);
+    pyodide.globals.set('op_in', opForCompute);
 
     const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
     const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
@@ -661,7 +759,6 @@ async function compute(){
       return String(raw);
     }
 
-    // render together after Ulgenes completes
     outGamma.textContent = mapOut(gRaw, isPosPartial);
     outHad.textContent = mapOut(hRaw, isPosPartial);
     outLus.textContent = mapOut(lRaw, isPosPartial);
