@@ -441,11 +441,12 @@ def _ulgenes_series_value(x):
 
     with mp.workdps(64):
         term_floor = mp.power(10, -30)
+        max_n = 256
         S = mp.mpf('0')
         top = x
         n = 1
 
-        while True:
+        while n <= max_n:
             _ensure_inner_cache(n)
             inner = _inner_cache[n]
             denom = mp.mpf(2*n - 1)
