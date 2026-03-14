@@ -174,7 +174,6 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 const pythonComputeModule = `
 from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf
-import gmpy2
 mp.dps = 128
 
 def _make_digamma():
@@ -427,7 +426,7 @@ def _ensure_inner_cache(n_max):
         inner = mp.mpf('0')
         for k in range(1, n + 1):
             sign = -1 if ((n + k) % 2) else 1
-            coeff = mp.mpf(gmpy2.comb(2*n - 1, n - k))
+            coeff = binomial(2*n - 1, n - k)
             term_k = mp.mpf(2*k - 1) * coeff * mp.log(mp.mpf(k))
             inner += (-term_k if sign == -1 else term_k)
         _inner_cache.append(inner)
