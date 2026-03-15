@@ -415,27 +415,13 @@ def f_klimek(x):
     except Exception:
         return mp.mpf('inf')
 
-_inner_cache = [mp.mpf('0')]
 _ul_cache = {}
-
-def _ensure_inner_cache(n_max):
-    if len(_inner_cache) >= n_max + 1:
-        return
-    start = len(_inner_cache)
-    for n in range(start, n_max + 1):
-        inner = mp.mpf('0')
-        for k in range(1, n + 1):
-            sign = -1 if ((n + k) % 2) else 1
-            coeff = binomial(2*n - 1, n - k)
-            term_k = mp.mpf(2*k - 1) * coeff * mp.log(mp.mpf(k))
-            inner += (-term_k if sign == -1 else term_k)
-        _inner_cache.append(inner)
 
 def _ul_key(x):
     return mp.nstr(x, 40)
 
-def _ulgenes_series_value(x):
-    key = "series:" + _ul_key(x)
+def _ulgenes_product_value(x):
+    key = "product:" + _ul_key(x)
     if key in _ul_cache:
         return _ul_cache[key]
 
@@ -443,14 +429,15 @@ def _ulgenes_series_value(x):
         term_floor = mp.power(10, -30)
         max_n = 256
         S = mp.mpf('0')
-        top = x
-        n = 1
 
-        while n <= max_n:
-            _ensure_inner_cache(n)
-            inner = _inner_cache[n]
-            denom = mp.mpf(2*n - 1)
-            term = top * (inner / denom)
+        for n in range(1, max_n + 1):
+            k = mp.mpf(n)
+            try:
+                exponent = binomial(x + k - 1, x - k) * mp.hyper([k - mp.mpf('0.5'), k + x, k - x], [2*k, k + mp.mpf('0.5')], 1)
+            except Exception:
+                _ul_cache[key] = mp.mpf('inf')
+                return _ul_cache[key]
+            term = exponent * mp.log(k)
 
             if mp.isnan(term) or mp.isinf(term):
                 _ul_cache[key] = mp.mpf('inf')
@@ -460,10 +447,6 @@ def _ulgenes_series_value(x):
 
             if n > 1 and abs(term) < term_floor:
                 break
-
-            R = (x + n) * (x - n) / (mp.mpf(2*n + 1) * mp.mpf(2*n))
-            top = top * R
-            n += 1
 
     try:
         val = mp.exp(+S)
@@ -477,7 +460,7 @@ def _ulgenes_series_value(x):
     return _ul_cache[key]
 
 def ulgenes_direct(x):
-    return _ulgenes_series_value(x)
+    return _ulgenes_product_value(x)
 
 def ulgenes_for_input(x):
     if (not isinstance(x, mpc)) and is_exact_real_integer(x):
@@ -487,15 +470,6 @@ def ulgenes_for_input(x):
         if n < 0:
             return 1 / mp.factorial(-n)
 
-    if (not isinstance(x, mpc)) and (mp.re(x) < 0):
-        base = ulgenes_direct(abs(mp.re(x)))
-        if mp.isnan(base):
-            return mp.mpf('inf')
-        if mp.isinf(base):
-            return mp.mpf('0')
-        if base == 0:
-            return mp.mpf('inf')
-        return 1 / base
     return ulgenes_direct(x)
 
 f_map = {
