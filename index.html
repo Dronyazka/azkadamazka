@@ -173,7 +173,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf, hyper
 mp.dps = 128
 
 def _make_digamma():
@@ -433,7 +433,7 @@ def _ulgenes_product_value(x):
         for n in range(1, max_n + 1):
             k = mp.mpf(n)
             try:
-                exponent = binomial(x + k - 1, x - k) * mp.hyper([k - mp.mpf('0.5'), k + x, k - x], [2*k, k + mp.mpf('0.5')], 1)
+                exponent = binomial(x + k - 1, x - k) * hyper([k - mp.mpf('0.5'), k + x, k - x], [2*k, k + mp.mpf('0.5')], 1)
             except Exception:
                 _ul_cache[key] = mp.mpf('inf')
                 return _ul_cache[key]
