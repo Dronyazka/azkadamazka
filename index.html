@@ -326,9 +326,11 @@ def f_factorial(x):
         return mp.mpf('inf')
 
 def f_fibonorial(x):
-    # Same base construction as fibonorial nPr with n=x and r=x.
+    xi = _int_if_real_integer(x)
+    if xi is not None and xi < 0:
+        return mp.mpf('inf')
     try:
-        return fib_pr(x, x)
+        return PHI**((x * (x - 1))/2) * qgamma(x + 1, QF)
     except Exception:
         return mp.mpf('inf')
 
@@ -399,7 +401,7 @@ def compute_values(x_str, y_str, op):
             a = mp.ff(x, y)
             b = fib_rise(x, y)
         elif op == 'fp_power':
-            a = mp.rf(x, y)
+            a = mp.ff(x, y)
             b = fib_xpower(x, y)
         else:
             a = mp.mpf('inf'); b = mp.mpf('inf')
