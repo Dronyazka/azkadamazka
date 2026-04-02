@@ -350,6 +350,13 @@ def fib_ncr(n, r):
     return (PHI**(r*(n-r))) * qgamma(n + 1, QF) / (qgamma(r + 1, QF) * qgamma(n - r + 1, QF))
 
 def fib_rise(x, n):
+    xi = _int_if_real_integer(x)
+    ni = _int_if_real_integer(n)
+    if xi is not None and ni is not None:
+        if xi > 0 and (1 - xi) <= ni <= 0:
+            return mp.mpf('0')
+        if xi < 0 and 1 <= ni <= (-xi):
+            return mp.mpf('inf')
     return PHI**((x * (x + 2*n - 3))/2) * (1 - QF)**(-x) * qpochhammer(QF**n, QF, x)
 
 def fib_pr(n, k):
