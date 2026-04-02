@@ -339,7 +339,11 @@ def Gamma_q(x):
     return qgamma(x, q_param)
 
 def fibonorial_direct(x):
-    exponent = (x * (x - 1)) / 2
+    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
+        xi = int(mp.re(x))
+        exponent = (xi * (xi - 1)) // 2
+    else:
+        exponent = (x * (x - 1)) / 2
     return phi**exponent * Gamma_q(x + 1)
 
 def f_fibonorial(x):
