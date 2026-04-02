@@ -370,7 +370,7 @@ def f_hadamard(x):
     phi = (1 + mp.sqrt(5)) / 2
     X = x
     try:
-        return (phi ** ((X * (X + 1)) / 2)) * mp.qgamma(-(phi ** -2), X + 1)
+        return (phi ** ((X * (X - 1)) / 2)) * mp.qgamma(X + 1, -(phi ** -2))
     except Exception:
         return mp.mpf('inf')
 
