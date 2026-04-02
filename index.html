@@ -379,6 +379,21 @@ f_map = {
     'hadamard': f_hadamard
 }
 
+def fibonorial_ncr(n, r):
+    phi = (1 + mp.sqrt(5)) / 2
+    q = -(phi ** -2)
+
+    ni = _int_if_real_integer(n)
+    ri = _int_if_real_integer(r)
+
+    if (ni is not None) and (ri is not None):
+        if ((0 <= ni < ri) or (ri < 0 <= ni) or (ni < ri < 0)):
+            return mp.mpf('0')
+        if ni < 0:
+            return ((-1) ** (ni * ri + (ri + 1) / 2)) * mp.qgamma(n + r, q) / (mp.qgamma(r + 1, q) * mp.qgamma(n, q))
+
+    return (phi ** (r * (n - r))) * mp.qgamma(n + 1, q) / (mp.qgamma(r + 1, q) * mp.qgamma(n - r + 1, q))
+
 def _is_bad(v):
     return mp.isnan(v) or mp.isinf(v)
 
@@ -475,13 +490,7 @@ def compute_partial(x_str, y_str, op):
                     except Exception:
                         val = mp.mpf('inf')
                 else:
-                    num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                        val = mp.mpf('0')
-                    else:
-                        val = num/(den1*den2)
+                    val = fibonorial_ncr(x_eff, y)
             else:
                 val = mp.mpf('inf')
         except Exception:
