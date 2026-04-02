@@ -132,7 +132,7 @@ function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
   btnPr.classList.toggle('active', mode === 'pr');
-  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_fall');
+  btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_rise');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
     yinput.style.display = 'none'; yinput.disabled = true; yinput.value = '';
@@ -145,10 +145,10 @@ function setMode(mode){
 function toggleViewMode(){
   if(viewMode === 'comb'){
     viewMode = 'fp';
-    if(operation === 'cr') operation = 'fp_fall';
+    if(operation === 'cr') operation = 'fp_rise';
   } else {
     viewMode = 'comb';
-    if(operation === 'fp_fall') operation = 'cr';
+    if(operation === 'fp_rise') operation = 'cr';
   }
   updateViewUI();
   setMode(operation);
@@ -156,7 +156,7 @@ function toggleViewMode(){
 
 btnFact.addEventListener('click', ()=> setMode('fact'));
 btnPr.addEventListener('click', ()=> setMode('pr'));
-btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_fall'));
+btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_rise'));
 viewToggle.addEventListener('click', toggleViewMode);
 updateViewUI();
 setMode('fact');
@@ -340,7 +340,7 @@ def fib_ncr(n, r):
             return ((-1)**(m*ri + (ri*(ri+1))//2)) * (PHI**(ri*(m-1))) * qgamma(m + ri, QF) / (qgamma(ri + 1, QF) * qgamma(m, QF))
     return (PHI**(r*(n-r))) * qgamma(n + 1, QF) / (qgamma(r + 1, QF) * qgamma(n - r + 1, QF))
 
-def fib_fall(x, n):
+def fib_rise(x, n):
     return PHI**((n * (2*x + n - 3))/2) * qpochhammer(x, QF, n)
 
 def fib_pr(n, k):
@@ -363,7 +363,7 @@ def compute_values(x_str, y_str, op):
         code = 'EMPTY_INPUT' if str(e) == 'EMPTY_INPUT' else 'NAN_INPUT'
         return (code, code, False)
 
-    if op in ('pr', 'cr', 'fp_fall'):
+    if op in ('pr', 'cr', 'fp_rise'):
         try:
             y = parse_input(y_str)
         except Exception as e:
@@ -384,9 +384,9 @@ def compute_values(x_str, y_str, op):
         elif op == 'pr':
             a = mp.ff(x, y)
             b = fib_pr(x, y)
-        elif op == 'fp_fall':
+        elif op == 'fp_rise':
             a = mp.ff(x, y)
-            b = fib_fall(x, y)
+            b = fib_rise(x, y)
         else:
             a = mp.mpf('inf'); b = mp.mpf('inf')
     except Exception:
@@ -439,7 +439,7 @@ async function compute(){
     outGamma.textContent = err; outHad.textContent = err;
     return;
   }
-  if((operation === 'pr' || operation === 'cr' || operation === 'fp_fall') && sy === ''){
+  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise') && sy === ''){
     const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err;
     return;
