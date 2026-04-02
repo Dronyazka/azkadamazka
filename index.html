@@ -179,7 +179,7 @@ LOWER_FIXED_BOUND = mp.mpf('1e-10')
 UPPER_FIXED_BOUND = mp.mpf('1e15')
 INT_TOL = mp.power(10, -20)
 ROUND_SCALE = mp.power(10, DECIMAL_PLACES)
-OVERFLOW_BOUND = mp.mpf('1e1000')
+OVERFLOW_BOUND = mp.mpf('1e10000')
 UNDERFLOW_BOUND = mp.mpf('1e-1000')
 
 def _use_fixed(abs_val):
@@ -326,6 +326,9 @@ def f_factorial(x):
         return mp.mpf('inf')
 
 def f_fibonorial(x):
+    xi = _int_if_real_integer(x)
+    if xi is not None and xi < 0:
+        return mp.mpf('inf')
     try:
         return PHI**((x * (x - 1))/2) * qgamma(x + 1, QF)
     except Exception:
