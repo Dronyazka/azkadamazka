@@ -326,11 +326,9 @@ def f_factorial(x):
         return mp.mpf('inf')
 
 def f_fibonorial(x):
-    xi = _int_if_real_integer(x)
-    if xi is not None and xi < 0:
-        return mp.mpf('inf')
+    # Same base construction as fibonorial nPr with n=x and r=x.
     try:
-        return PHI**((x * (x - 1))/2) * qgamma(x + 1, QF)
+        return fib_pr(x, x)
     except Exception:
         return mp.mpf('inf')
 
