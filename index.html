@@ -390,7 +390,8 @@ def fibonorial_ncr(n, r):
         if ((0 <= ni < ri) or (ri < 0 <= ni) or (ni < ri < 0)):
             return mp.mpf('0')
         if ni < 0:
-            return ((-1) ** (ni * ri + (ri + 1) / 2)) * (phi ** (r * (n - 1))) * mp.qgamma(n + r, q) / (mp.qgamma(r + 1, q) * mp.qgamma(n, q))
+            sign_exp = ni * ri + ((ri + 1) // 2)
+            return ((-1) ** sign_exp) * (phi ** (r * (n - 1))) * mp.qgamma(n + r, q) / (mp.qgamma(r + 1, q) * mp.qgamma(n, q))
 
     return (phi ** (r * (n - r))) * mp.qgamma(n + 1, q) / (mp.qgamma(r + 1, q) * mp.qgamma(n - r + 1, q))
 
