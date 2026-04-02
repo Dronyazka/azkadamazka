@@ -335,22 +335,29 @@ def f_gamma(x):
 phi = (1 + sqrt(5)) / 2
 q_param = -phi**-2
 
-def Gamma_q(x):
-    return qgamma(x, q_param)
-
 def fibonorial_direct(x):
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
-        xi = int(mp.re(x))
-        exponent = (xi * (xi - 1)) // 2
-    else:
-        exponent = (x * (x - 1)) / 2
-    return phi**exponent * Gamma_q(x + 1)
+    exponent = (x * (x - 1)) / 2
+    return phi**exponent * qgamma(x + 1, q_param)
 
 def f_fibonorial(x):
     try:
         return fibonorial_direct(x)
     except Exception:
         return mp.mpf('inf')
+
+def snap_integer_if_close(v):
+    try:
+        if isinstance(v, mpc):
+            if abs(mp.im(v)) < mp.power(10, -35):
+                v = mp.re(v)
+            else:
+                return v
+        nearest = mp.nint(v)
+        if abs(v - nearest) < mp.power(10, -28):
+            return nearest
+    except Exception:
+        pass
+    return v
 
 def fibonorial_comb(n, r):
     if (not isinstance(n, mpc)) and (not isinstance(r, mpc)) and is_exact_real_integer(n) and is_exact_real_integer(r):
@@ -363,23 +370,24 @@ def fibonorial_comb(n, r):
             return mp.mpf('0')
 
         if ni < 0:
-            return (
+            val = (
                 mp.power(-1, ni * ri + (ri * (ri + 1)) / 2)
                 * (phi ** (ri * (ni - 1)))
-                * Gamma_q(ni + ri)
-                / (Gamma_q(ri + 1) * Gamma_q(ni))
+                * qgamma(ni + ri, q_param)
+                / (qgamma(ri + 1, q_param) * qgamma(ni, q_param))
             )
+            return snap_integer_if_close(val)
 
         return (
             (phi ** (ri * (ni - ri)))
-            * Gamma_q(ni + 1)
-            / (Gamma_q(ri + 1) * Gamma_q(ni - ri + 1))
+            * qgamma(ni + 1, q_param)
+            / (qgamma(ri + 1, q_param) * qgamma(ni - ri + 1, q_param))
         )
 
     return (
         (phi ** (r * (n - r)))
-        * Gamma_q(n + 1)
-        / (Gamma_q(r + 1) * Gamma_q(n - r + 1))
+        * qgamma(n + 1, q_param)
+        / (qgamma(r + 1, q_param) * qgamma(n - r + 1, q_param))
     )
 
 f_map = {
