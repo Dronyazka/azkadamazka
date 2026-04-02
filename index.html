@@ -353,7 +353,7 @@ def fib_pr(n, k):
             return mp.mpf('0')
         if ni < 0:
             m = -ni
-            return ((-1)**(m*ki + (ki + 1)/2)) * (PHI**(m*ki + ki/2 - ki)) * qgamma(m + ki, QF) / qgamma(ni, QF)
+            return ((-1)**(m*ki + (ki*(ki + 1))/2)) * (PHI**(m*ki + (ki*(ki - 1))/2 - ki)) * qgamma(m + ki, QF) / qgamma(ni, QF)
     return (PHI**(n*k - k*(k+1)/2)) * qgamma(n + 1, QF) / qgamma(n - k + 1, QF)
 
 def compute_values(x_str, y_str, op):
