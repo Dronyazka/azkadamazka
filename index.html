@@ -370,17 +370,18 @@ def fibonorial_comb(n, r):
             return mp.mpf('0')
 
         if ni < 0:
-            exponent_sign = ni * ri + (ri * (ri + 1)) // 2
+            m = -ni
+            exponent_sign = m * ri + (ri * (ri + 1)) // 2
             sign_factor = -1 if (exponent_sign % 2) else 1
 
             if ri >= 0:
                 ratio = mp.mpf('1')
                 for k in range(ri):
-                    ratio *= (1 - q_param**(ni + k)) / (1 - q_param)
+                    ratio *= (1 - q_param**(m + k)) / (1 - q_param)
             else:
-                ratio = qgamma(ni + ri, q_param) / qgamma(ni, q_param)
+                ratio = qgamma(m + ri, q_param) / qgamma(m, q_param)
 
-            val = sign_factor * (phi ** (ri * (ni - 1))) * ratio / qgamma(ri + 1, q_param)
+            val = sign_factor * (phi ** (ri * (m - 1))) * ratio / qgamma(ri + 1, q_param)
             return snap_integer_if_close(val)
 
         return (
