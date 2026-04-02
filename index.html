@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" href="pseudogammacalc.ico" type="image/x-icon" />
-<title>Pseudogamma Function Calculator</title>
+<title>Fibonorial Calculator</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -40,7 +40,7 @@ input::placeholder{color:rgba(230,238,248,.45);}
 </head>
 <body>
 <div class="page">
-  <h1 class="page-title">Pseudogamma Function Calculator</h1>
+  <h1 class="page-title">Fibonorial Calculator</h1>
   <div class="op-row">
     <div class="op-card">
       <div id="opLabel" class="op-label">Combinatorics</div>
@@ -65,11 +65,8 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K-function</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes' lambda function</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Factorial</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Fibonorial</div><div id="outHad" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
@@ -90,9 +87,6 @@ const yinput = document.getElementById('yinput');
 const computeBtn = document.getElementById('compute');
 const outGamma = document.getElementById('outGamma');
 const outHad = document.getElementById('outHad');
-const outLus = document.getElementById('outLus');
-const outKli = document.getElementById('outKli');
-const outUl = document.getElementById('outUl');
 const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
@@ -173,37 +167,11 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf, hyper
+from mpmath import mp, mpf, mpc, qgamma
 mp.dps = 256
 
-def _make_digamma():
-    try:
-        _ = mp.psi(mp.mpf('0.5'))
-        return lambda z: mp.psi(z)
-    except TypeError:
-        try:
-            _ = mp.polygamma(0, mp.mpf('0.5'))
-            return lambda z: mp.polygamma(0, z)
-        except Exception:
-            try:
-                _ = mp.digamma(mp.mpf('0.5'))
-                return lambda z: mp.digamma(z)
-            except Exception:
-                def fallback(z):
-                    h = mp.power(10, -10)
-                    return (log(gamma(z + h)) - log(gamma(z - h))) / (2*h)
-                return fallback
-    except Exception:
-        try:
-            _ = mp.polygamma(0, mp.mpf('0.5'))
-            return lambda z: mp.polygamma(0, z)
-        except Exception:
-            def fallback(z):
-                h = mp.power(10, -10)
-                return (log(gamma(z + h)) - log(gamma(z - h))) / (2*h)
-            return fallback
-
-digamma = _make_digamma()
+PHI = (1 + mp.sqrt(5)) / 2
+QF = -PHI**-2
 
 DECIMAL_PLACES = 30
 SCI_SIG_DIGITS = 30
@@ -268,6 +236,7 @@ def _fmt_fixed(z):
     if s in ('', '-0', '+0'):
         return '0'
     return _normalize_zero_string(s)
+
 def fmt(z):
     try:
         if mp.isinf(z) or abs(z) >= OVERFLOW_BOUND:
@@ -284,38 +253,14 @@ def fmt(z):
     if isinstance(z, mpc):
         re = mp.re(z); im = mp.im(z)
         if abs(im) < mp.mpf('1e-25'):
-            val = re
-            try:
-                nearest = int(mp.floor(val + mp.mpf('0.5')))
-                if abs(val) >= 1 and abs(val - nearest) <= INT_TOL and abs(val) < UPPER_FIXED_BOUND:
-                    return str(int(nearest))
-            except Exception:
-                pass
-            try:
-                abs_val = abs(val)
-            except Exception:
-                abs_val = None
-            if abs_val is None:
-                return _fmt_fixed(val)
-            if abs_val < UNDERFLOW_BOUND:
-                return '0'
-            return _fmt_fixed(val) if _use_fixed(abs_val) else _fmt_sci(val)
-        re_abs = abs(re)
-        im_abs = abs(im)
-        if re_abs < UNDERFLOW_BOUND:
-            re_s = '0'
+            z = re
         else:
-            re_s = _fmt_fixed(re) if (re_abs == 0 or _use_fixed(re_abs)) else _fmt_sci(re)
-        if im_abs < UNDERFLOW_BOUND:
-            im_s = '0'
-        else:
-            im_s = _fmt_fixed(im_abs) if (im_abs == 0 or _use_fixed(im_abs)) else _fmt_sci(im_abs)
-        re_s = _normalize_zero_string(re_s)
-        im_s = _normalize_zero_string(im_s)
-        if re_s == '0' and im_s == '0':
-            return '0'
-        sign = ' + ' if mp.sign(im) >= 0 else ' - '
-        return f"{re_s}{sign}{im_s}i"
+            re_abs = abs(re)
+            im_abs = abs(im)
+            re_s = '0' if re_abs < UNDERFLOW_BOUND else (_fmt_fixed(re) if (re_abs == 0 or _use_fixed(re_abs)) else _fmt_sci(re))
+            im_s = '0' if im_abs < UNDERFLOW_BOUND else (_fmt_fixed(im_abs) if (im_abs == 0 or _use_fixed(im_abs)) else _fmt_sci(im_abs))
+            sign = ' + ' if mp.sign(im) >= 0 else ' - '
+            return f"{re_s}{sign}{im_s}i"
 
     try:
         abs_z = abs(z)
@@ -358,298 +303,101 @@ def is_exact_real_integer(x):
     except Exception:
         return False
 
-def symmetric_limit(func, x, eps=None):
-    if eps is None:
-        eps = mp.power(10, -30)
-    return (func(x + eps) + func(x - eps)) / 2
-
-def f_gamma(x):
-    targ = x + 1
-    if (not isinstance(targ, mpc)) and is_exact_real_integer(targ) and int(mp.re(targ)) <= 0:
-        return mp.mpf('inf')
-    try:
-        return mp.gamma(targ)
-    except Exception:
-        return mp.mpf('inf')
-
-def hadamard_direct(X):
-    return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*mp.gamma(1 - X))
-
-def f_hadamard(x):
-    X = x + 1
-    if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
-        return symmetric_limit(hadamard_direct, X)
-    try:
-        return hadamard_direct(X)
-    except Exception:
-        return mp.mpf('inf')
-
-def luschny_L(x):
-    g = mp.gamma(x + 1)
-    denom = mp.pi * x
-    sinc = mp.mpf(1) if denom == 0 else mp.sin(mp.pi * x) / denom
-    inner = (x / 2) * (digamma((x + 1) / 2) - digamma(x / 2)) - mp.mpf('1/2')
-    return g * (1 - sinc * inner)
-
-def f_luschny(x):
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) <= 0:
-        return symmetric_limit(luschny_L, x)
-    try:
-        return luschny_L(x)
-    except Exception:
-        return mp.mpf('inf')
-
-def klimek_for_argument(A):
-    term = mp.sin(2 * mp.pi * A) / (2 * mp.pi)
-    return mp.gamma(A) * (1 + term * digamma(A))
-
-def f_klimek(x):
-    A = x + 1
-    if not isinstance(A, mpc):
-        try:
-            return symmetric_limit(klimek_for_argument, A)
-        except Exception:
-            return mp.mpf('inf')
-    try:
-        return klimek_for_argument(A)
-    except Exception:
-        return mp.mpf('inf')
-
-_ul_cache = {}
-
-def _ul_key(x):
-    return mp.nstr(x, 40)
-
-def _ulgenes_product_value(x):
-    key = "product:" + _ul_key(x)
-    if key in _ul_cache:
-        return _ul_cache[key]
-
-    with mp.workdps(256):
-        term_floor = mp.power(10, -30)
-        max_n = 256
-        S = mp.mpf('0')
-
-        for n in range(1, max_n + 1):
-            k = mp.mpf(n)
-            try:
-                exponent = binomial(x + k - 1, x - k) * hyper([k - mp.mpf('0.5'), k + x, k - x], [2*k, k + mp.mpf('0.5')], 1)
-            except Exception:
-                _ul_cache[key] = mp.mpf('inf')
-                return _ul_cache[key]
-            term = exponent * mp.log(k)
-
-            if mp.isnan(term) or mp.isinf(term):
-                _ul_cache[key] = mp.mpf('inf')
-                return _ul_cache[key]
-
-            S = S + term
-
-            if n > 1 and abs(term) < term_floor:
-                break
-
-    try:
-        val = mp.exp(+S)
-    except Exception:
-        val = mp.mpf('inf')
-
-    if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
-        _ul_cache[key] = mp.mpf('inf')
-    else:
-        _ul_cache[key] = val
-    return _ul_cache[key]
-
-def ulgenes_direct(x):
-    return _ulgenes_product_value(x)
-
-def ulgenes_for_input(x):
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
-        n = int(mp.re(x))
-        if n > 0:
-            return mp.factorial(n)
-        if n < 0:
-            return 1 / mp.factorial(-n)
-
-    return ulgenes_direct(x)
-
-f_map = {
-    'gamma': f_gamma,
-    'hadamard': f_hadamard,
-    'luschny': f_luschny,
-    'klimek': f_klimek,
-    'ulgenes': ulgenes_direct
-}
-
-def _is_bad(v):
-    return mp.isnan(v) or mp.isinf(v)
-
-def _comb_value(f, x, y, op):
-    if op == 'pr':
-        return f(x) / f(x - y)
-    return f(x) / (f(y) * f(x - y))
-
 def _int_if_real_integer(x):
     if (not isinstance(x, mpc)) and is_exact_real_integer(x):
         return int(mp.re(x))
     return None
 
-def _has_gamma_pole_on_shifted_arg(v):
-    vi = _int_if_real_integer(v)
-    return (vi is not None) and (vi <= -1)
+def qpochhammer(a, q, n):
+    if hasattr(mp, 'qpoch'):
+        return mp.qpoch(a, q, n)
+    if hasattr(mp, 'qp'):
+        return mp.qp(a, q, n)
+    raise ValueError('q-Pochhammer not available')
 
-def _two_arg_limit(f, x, y, op, eps=None):
-    if eps is None:
-        eps = mp.power(10, -20)
-    vals = []
-    for sx in (1, -1):
-        for sy in (1, -1):
-            try:
-                xv = x + sx * eps
-                yv = y + sy * eps
-                vv = _comb_value(f, xv, yv, op)
-                if not _is_bad(vv):
-                    vals.append(vv)
-            except Exception:
-                pass
-    if not vals:
+def f_factorial(x):
+    try:
+        return mp.gamma(x + 1)
+    except Exception:
         return mp.mpf('inf')
-    return sum(vals) / len(vals)
 
-def compute_partial(x_str, y_str, op):
-    mp.dps = 256
+def f_fibonorial(x):
+    try:
+        return PHI**((x * (x - 1))/2) * qgamma(x + 1, QF)
+    except Exception:
+        return mp.mpf('inf')
+
+def fib_ncr(n, r):
+    ni = _int_if_real_integer(n)
+    ri = _int_if_real_integer(r)
+    if ni is not None and ri is not None:
+        if ni >= 0 and ri < 0:
+            return mp.mpf('0')
+        if ni >= 0 and ri > ni:
+            return mp.mpf('0')
+        if ni < 0 and ni < ri < 0:
+            return mp.mpf('0')
+        if ni < 0:
+            m = -ni
+            return ((-1)**(m*ri + (ri*(ri+1))//2)) * (PHI**(ri*(m-1))) * qgamma(m + ri, QF) / (qgamma(ri + 1, QF) * qgamma(m, QF))
+    return (PHI**(r*(n-r))) * qgamma(n + 1, QF) / (qgamma(r + 1, QF) * qgamma(n - r + 1, QF))
+
+def fib_fall(x, n):
+    return PHI**((n * (2*x + n - 3))/2) * qpochhammer(x, QF, n)
+
+def fib_pr(n, k):
+    ni = _int_if_real_integer(n)
+    ki = _int_if_real_integer(k)
+    if ni is not None and ki is not None:
+        if ki <= ni < 0:
+            return mp.mpf('inf')
+        if 0 <= ni < ki:
+            return mp.mpf('0')
+        if ni < 0:
+            m = -ni
+            return ((-1)**(m*ki + (ki + 1)/2)) * (PHI**(m*ki + ki/2 - ki)) * qgamma(m + ki, QF) / qgamma(ni, QF)
+    return (PHI**(n*k - k*(k+1)/2)) * qgamma(n + 1, QF) / qgamma(n - k + 1, QF)
+
+def compute_values(x_str, y_str, op):
     try:
         x = parse_input(x_str)
     except Exception as e:
-        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, code, code, code, False)
-    x_eff = x
-    op_eff = op
+        code = 'EMPTY_INPUT' if str(e) == 'EMPTY_INPUT' else 'NAN_INPUT'
+        return (code, code, False)
 
-    if op == 'pr_rise':
-        try:
-            y_tmp = parse_input(y_str)
-            x_eff = x + y_tmp - 1
-        except Exception as e:
-            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, code, code, code, False)
-        op_eff = 'pr'
-
-    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
-
-    if op_eff in ('pr','cr'):
+    if op in ('pr', 'cr', 'fp_rise', 'fp_fall'):
         try:
             y = parse_input(y_str)
         except Exception as e:
-            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, code, code, code, is_pos)
+            code = 'EMPTY_INPUT' if str(e) == 'EMPTY_INPUT' else 'NAN_INPUT'
+            return (code, code, False)
     else:
         y = None
 
-    outputs = []
-    names = ['gamma','hadamard','luschny','klimek']
-    for nm in names:
-        f = f_map[nm]
-        try:
-            if op_eff == 'fact':
-                val = f(x_eff)
-            elif op_eff == 'pr':
-                if nm == 'gamma':
-                    try:
-                        if op == 'pr_rise':
-                            val = rf(x, y)
-                        else:
-                            val = ff(x_eff, y)
-                    except Exception:
-                        val = mp.mpf('inf')
-                else:
-                    num = f(x_eff); den = f(x_eff - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den) or mp.isnan(den):
-                        val = mp.mpf('0')
-                    else:
-                        val = num/den
-            elif op_eff == 'cr':
-                if nm == 'gamma':
-                    try:
-                        val = binomial(x_eff, y)
-                    except Exception:
-                        val = mp.mpf('inf')
-                else:
-                    num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                        val = mp.mpf('0')
-                    else:
-                        val = num/(den1*den2)
-            else:
-                val = mp.mpf('inf')
-        except Exception:
-            val = mp.mpf('inf')
-        outputs.append(fmt(val))
-    return tuple(outputs) + (bool(is_pos),)
-
-def compute_ulgenes(x_str, y_str, op):
-    mp.dps = 256
-    try:
-        x = parse_input(x_str)
-    except Exception as e:
-        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, False)
-    x_eff = x
-    op_eff = op
-
-    if op == 'pr_rise':
-        try:
-            y_tmp = parse_input(y_str)
-            x_eff = x + y_tmp - 1
-        except Exception as e:
-            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, False)
-        op_eff = 'pr'
-
-    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
-
-    if op_eff == 'fact':
-        try:
-            val = ulgenes_for_input(x_eff)
-        except Exception:
-            val = mp.mpf('inf')
-        return (fmt(val), is_pos)
+    is_pos = (not isinstance(x, mpc)) and (mp.re(x) > 0)
 
     try:
-        y = parse_input(y_str)
-    except Exception as e:
-        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, is_pos)
-
-    try:
-        if op_eff == 'pr':
-            num = ulgenes_for_input(x_eff)
-            den = ulgenes_for_input(x_eff - y)
-            if mp.isinf(num) or mp.isnan(num):
-                val = mp.mpf('inf')
-            elif mp.isinf(den) or mp.isnan(den):
-                val = mp.mpf('0')
-            else:
-                val = num/den
-            return (fmt(val), is_pos)
-        elif op_eff == 'cr':
-            num = ulgenes_for_input(x_eff)
-            den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x_eff - y)
-            if mp.isinf(num) or mp.isnan(num):
-                val = mp.mpf('inf')
-            elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                val = mp.mpf('0')
-            else:
-                val = num/(den1*den2)
-            return (fmt(val), is_pos)
+        if op == 'fact':
+            a = f_factorial(x)
+            b = f_fibonorial(x)
+        elif op == 'cr':
+            a = mp.binomial(x, y)
+            b = fib_ncr(x, y)
+        elif op == 'pr':
+            a = mp.ff(x, y)
+            b = fib_pr(x, y)
+        elif op == 'fp_fall':
+            a = mp.ff(x, y)
+            b = fib_fall(x, y)
+        elif op == 'fp_rise':
+            a = mp.rf(x, y)
+            b = fib_pr(x + y - 1, y)
+        else:
+            a = mp.mpf('inf'); b = mp.mpf('inf')
     except Exception:
-        return ("ERROR", is_pos)
+        a = mp.mpf('inf'); b = mp.mpf('inf')
 
-    return ("ERROR", is_pos)`;
+    return (fmt(a), fmt(b), bool(is_pos))`
 
 
 let pyodideReady = false;
@@ -680,13 +428,11 @@ yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 
 async function compute(){
   errorBox.style.display = 'none';
-  outGamma.textContent = '…'; outHad.textContent = '…'; outLus.textContent = '…';
-  outKli.textContent = '…'; outUl.textContent = '…';
+  outGamma.textContent = '…'; outHad.textContent = '…';
 
   if(!pyodideReady){
     const msg = 'Error: Engine is not ready';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
-    outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg;
     return;
   }
 
@@ -695,14 +441,12 @@ async function compute(){
 
   if(sx === ''){
     const err = 'Error: Incomplete expression';
-    outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
-    outKli.textContent = err; outUl.textContent = err;
+    outGamma.textContent = err; outHad.textContent = err;
     return;
   }
   if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_fall') && sy === ''){
     const err = 'Error: Incomplete expression';
-    outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
-    outKli.textContent = err; outUl.textContent = err;
+    outGamma.textContent = err; outHad.textContent = err;
     return;
   }
 
@@ -711,14 +455,11 @@ async function compute(){
   try{
     pyodide.globals.set('x_in', sx);
     pyodide.globals.set('y_in', sy);
-    const opForCompute = (operation === 'fp_fall') ? 'pr' : (operation === 'fp_rise' ? 'pr_rise' : operation);
-    pyodide.globals.set('op_in', opForCompute);
+    pyodide.globals.set('op_in', operation);
 
-    const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
-    const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
+    const result = await pyodide.runPythonAsync(`compute_values(x_in, y_in if y_in is not None else '', op_in)`);
 
-    const [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
-    const [uRaw, isPosU] = ulres;
+    const [gRaw, hRaw, isPos] = result;
 
     function mapOut(raw, isPos){
       if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression';
@@ -733,17 +474,13 @@ async function compute(){
       return String(raw);
     }
 
-    outGamma.textContent = mapOut(gRaw, isPosPartial);
-    outHad.textContent = mapOut(hRaw, isPosPartial);
-    outLus.textContent = mapOut(lRaw, isPosPartial);
-    outKli.textContent = mapOut(kRaw, isPosPartial);
-    outUl.textContent = mapOut(uRaw, isPosU);
+    outGamma.textContent = mapOut(gRaw, isPos);
+    outHad.textContent = mapOut(hRaw, isPos);
 
   } catch(err){
     console.error('Compute failed', err);
     const msg = 'Error: Computation failed';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
-    outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg;
   } finally {
     computeBtn.disabled = false;
     computeBtn.textContent = 'Compute';
