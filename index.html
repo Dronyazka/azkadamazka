@@ -335,9 +335,12 @@ def f_gamma(x):
 phi = (1 + sqrt(5)) / 2
 q_param = -phi**-2
 
+def Gamma_q(x):
+    return qgamma(x, q_param)
+
 def fibonorial_direct(x):
     exponent = (x * (x - 1)) / 2
-    return phi**exponent * qgamma(x + 1, q_param)
+    return phi**exponent * Gamma_q(x + 1)
 
 def f_fibonorial(x):
     try:
@@ -359,20 +362,20 @@ def fibonorial_comb(n, r):
             return (
                 mp.power(-1, ni * ri + (ri * (ri + 1)) / 2)
                 * (phi ** (ri * (ni - 1)))
-                * qgamma(ni + ri, q_param)
-                / (qgamma(ri + 1, q_param) * qgamma(ni, q_param))
+                * Gamma_q(ni + ri)
+                / (Gamma_q(ri + 1) * Gamma_q(ni))
             )
 
         return (
             (phi ** (ri * (ni - ri)))
-            * qgamma(ni + 1, q_param)
-            / (qgamma(ri + 1, q_param) * qgamma(ni - ri + 1, q_param))
+            * Gamma_q(ni + 1)
+            / (Gamma_q(ri + 1) * Gamma_q(ni - ri + 1))
         )
 
     return (
         (phi ** (r * (n - r)))
-        * qgamma(n + 1, q_param)
-        / (qgamma(r + 1, q_param) * qgamma(n - r + 1, q_param))
+        * Gamma_q(n + 1)
+        / (Gamma_q(r + 1) * Gamma_q(n - r + 1))
     )
 
 f_map = {
