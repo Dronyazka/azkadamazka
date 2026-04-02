@@ -345,6 +345,38 @@ def f_fibonorial(x):
     except Exception:
         return mp.mpf('inf')
 
+def fibonorial_comb(n, r):
+    if (not isinstance(n, mpc)) and (not isinstance(r, mpc)) and is_exact_real_integer(n) and is_exact_real_integer(r):
+        ni = int(mp.re(n))
+        ri = int(mp.re(r))
+
+        if ni >= 0 and (ri < 0 or ri > ni):
+            return mp.mpf('0')
+        if ni < 0 and ni < ri < 0:
+            return mp.mpf('0')
+
+        if ni < 0:
+            exponent_sign = ni * ri + (ri * (ri + 1)) // 2
+            sign_factor = -1 if (exponent_sign % 2) else 1
+            return (
+                sign_factor
+                * (phi ** (ri * (ni - 1)))
+                * qgamma(ni + ri, q_param)
+                / (qgamma(ri + 1, q_param) * qgamma(ni, q_param))
+            )
+
+        return (
+            (phi ** (ri * (ni - ri)))
+            * qgamma(ni + 1, q_param)
+            / (qgamma(ri + 1, q_param) * qgamma(ni - ri + 1, q_param))
+        )
+
+    return (
+        (phi ** (r * (n - r)))
+        * qgamma(n + 1, q_param)
+        / (qgamma(r + 1, q_param) * qgamma(n - r + 1, q_param))
+    )
+
 f_map = {
     'gamma': f_gamma,
     'fibonorial': f_fibonorial
@@ -411,13 +443,7 @@ def compute_partial(x_str, y_str, op):
                     except Exception:
                         val = mp.mpf('inf')
                 else:
-                    num = f(x_eff); den1 = f(y); den2 = f(x_eff - y)
-                    if mp.isinf(num) or mp.isnan(num):
-                        val = mp.mpf('inf')
-                    elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                        val = mp.mpf('0')
-                    else:
-                        val = num/(den1*den2)
+                    val = fibonorial_comb(x_eff, y)
             else:
                 val = mp.mpf('inf')
         except Exception:
