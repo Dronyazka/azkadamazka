@@ -167,7 +167,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf, qgamma, sqrt
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf, qgamma
 mp.dps = 256
 
 DECIMAL_PLACES = 30
@@ -332,7 +332,7 @@ def f_gamma(x):
     except Exception:
         return mp.mpf('inf')
 
-phi = (1 + sqrt(5)) / 2
+phi = mp.phi
 q_param = -phi**-2
 
 def fibonorial_direct(x):
