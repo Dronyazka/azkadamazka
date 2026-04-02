@@ -357,7 +357,7 @@ def fibonorial_comb(n, r):
 
         if ni < 0:
             return (
-                mp.power(-1, ni * ri + (ri + 1) / 2)
+                mp.power(-1, ni * ri + (ri * (ri + 1)) / 2)
                 * (phi ** (ri * (ni - 1)))
                 * qgamma(ni + ri, q_param)
                 / (qgamma(ri + 1, q_param) * qgamma(ni, q_param))
