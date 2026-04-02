@@ -353,11 +353,11 @@ def fib_rise(x, n):
     xi = _int_if_real_integer(x)
     ni = _int_if_real_integer(n)
     if xi is not None and ni is not None:
-        if xi > 0 and (1 - xi) <= ni <= 0:
+        if ni > 0 and (1 - ni) <= xi <= 0:
             return mp.mpf('0')
-        if xi < 0 and 1 <= ni <= (-xi):
+        if ni < 0 and 1 <= xi <= (-ni):
             return mp.mpf('inf')
-    return PHI**((x * (x + 2*n - 3))/2) * (1 - QF)**(-x) * qpochhammer(QF**n, QF, x)
+    return PHI**(n*x + (n**2 - 3*n)/2) * (1 - QF)**(-n) * qpochhammer(QF**x, QF, n)
 
 def fib_pr(n, k):
     ni = _int_if_real_integer(n)
