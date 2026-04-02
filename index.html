@@ -356,10 +356,8 @@ def fibonorial_comb(n, r):
             return mp.mpf('0')
 
         if ni < 0:
-            exponent_sign = ni * ri + (ri * (ri + 1)) // 2
-            sign_factor = -1 if (exponent_sign % 2) else 1
             return (
-                sign_factor
+                mp.power(-1, ni * ri + (ri + 1) / 2)
                 * (phi ** (ri * (ni - 1)))
                 * qgamma(ni + ri, q_param)
                 / (qgamma(ri + 1, q_param) * qgamma(ni, q_param))
