@@ -319,6 +319,11 @@ def qpochhammer(a, q, n):
         return mp.qpochhammer(a, q, n)
     raise ValueError('q-Pochhammer not available')
 
+def pochhammer_builtin(x, n):
+    if hasattr(mp, 'poch'):
+        return mp.poch(x, n)
+    return mp.rf(x, n)
+
 def f_factorial(x):
     try:
         return mp.gamma(x + 1)
@@ -405,8 +410,14 @@ def compute_values(x_str, y_str, op):
             a = mp.ff(x, y)
             b = fib_pr(x, y)
         elif op == 'fp_rise':
-            a = mp.rf(x, y)
-            b = fib_rise(x, y)
+            try:
+                a = pochhammer_builtin(x, y)
+            except Exception:
+                a = mp.mpf('inf')
+            try:
+                b = fib_rise(x, y)
+            except Exception:
+                b = mp.mpf('inf')
         elif op == 'fp_power':
             a = mp.ff(x, y)
             b = fib_xpower(x, y)
