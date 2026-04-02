@@ -131,7 +131,7 @@ function updateViewUI(){
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr');
+  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_power');
   btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_rise');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
@@ -146,16 +146,18 @@ function toggleViewMode(){
   if(viewMode === 'comb'){
     viewMode = 'fp';
     if(operation === 'cr') operation = 'fp_rise';
+    else if(operation === 'pr') operation = 'fp_power';
   } else {
     viewMode = 'comb';
     if(operation === 'fp_rise') operation = 'cr';
+    else if(operation === 'fp_power') operation = 'pr';
   }
   updateViewUI();
   setMode(operation);
 }
 
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode('pr'));
+btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_power'));
 btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_rise'));
 viewToggle.addEventListener('click', toggleViewMode);
 updateViewUI();
@@ -360,6 +362,10 @@ def fib_pr(n, k):
             return ((-1)**(m*ki + (ki*(ki + 1))//2)) * (PHI**(m*ki + (ki*(ki - 1))//2 - ki)) * qgamma(m + ki, QF) / qgamma(m, QF)
     return (PHI**(n*k - k*(k+1)/2)) * qgamma(n + 1, QF) / qgamma(n - k + 1, QF)
 
+def fib_xpower(x, n):
+    # x^(n) mode follows the same fibonorial nPr-style extension with x as the base argument.
+    return fib_pr(x, n)
+
 def compute_values(x_str, y_str, op):
     try:
         x = parse_input(x_str)
@@ -367,7 +373,7 @@ def compute_values(x_str, y_str, op):
         code = 'EMPTY_INPUT' if str(e) == 'EMPTY_INPUT' else 'NAN_INPUT'
         return (code, code, False)
 
-    if op in ('pr', 'cr', 'fp_rise'):
+    if op in ('pr', 'cr', 'fp_rise', 'fp_power'):
         try:
             y = parse_input(y_str)
         except Exception as e:
@@ -391,6 +397,9 @@ def compute_values(x_str, y_str, op):
         elif op == 'fp_rise':
             a = mp.ff(x, y)
             b = fib_rise(x, y)
+        elif op == 'fp_power':
+            a = mp.rf(x, y)
+            b = fib_xpower(x, y)
         else:
             a = mp.mpf('inf'); b = mp.mpf('inf')
     except Exception:
@@ -443,7 +452,7 @@ async function compute(){
     outGamma.textContent = err; outHad.textContent = err;
     return;
   }
-  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise') && sy === ''){
+  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_power') && sy === ''){
     const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err;
     return;
