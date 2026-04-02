@@ -308,7 +308,7 @@ def _int_if_real_integer(x):
         return int(mp.re(x))
     return None
 
-def qpochhammer(a, q, n):
+def qpochhammer_builtin(a, q, n):
     # mpmath's q-Pochhammer is qp(a, q, n) -> (a; q)_n
     if hasattr(mp, 'qp'):
         return mp.qp(a, q, n)
@@ -362,7 +362,7 @@ def fib_rise(x, n):
             return mp.mpf('0')
         if ni < 0 and 1 <= xi <= (-ni):
             return mp.mpf('inf')
-    return PHI**(n*x + (n**2 - 3*n)/2) * (1 - QF)**(-n) * qpochhammer(QF**x, QF, n)
+    return PHI**(n*x + (n**2 - 3*n)/2) * (1 - QF)**(-n) * qpochhammer_builtin(QF**x, QF, n)
 
 def fib_pr(n, k):
     ni = _int_if_real_integer(n)
