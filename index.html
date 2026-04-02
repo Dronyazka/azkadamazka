@@ -131,7 +131,7 @@ function updateViewUI(){
 function setMode(mode){
   operation = mode;
   btnFact.classList.toggle('active', mode === 'fact');
-  btnPr.classList.toggle('active', mode === 'pr' || mode === 'fp_rise');
+  btnPr.classList.toggle('active', mode === 'pr');
   btnCr.classList.toggle('active', mode === 'cr' || mode === 'fp_fall');
   if(mode === 'fact'){
     inputsRow.className = 'inputs-row one';
@@ -146,18 +146,16 @@ function toggleViewMode(){
   if(viewMode === 'comb'){
     viewMode = 'fp';
     if(operation === 'cr') operation = 'fp_fall';
-    else if(operation === 'pr') operation = 'fp_rise';
   } else {
     viewMode = 'comb';
     if(operation === 'fp_fall') operation = 'cr';
-    else if(operation === 'fp_rise') operation = 'pr';
   }
   updateViewUI();
   setMode(operation);
 }
 
 btnFact.addEventListener('click', ()=> setMode('fact'));
-btnPr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'pr' : 'fp_rise'));
+btnPr.addEventListener('click', ()=> setMode('pr'));
 btnCr.addEventListener('click', ()=> setMode(viewMode === 'comb' ? 'cr' : 'fp_fall'));
 viewToggle.addEventListener('click', toggleViewMode);
 updateViewUI();
@@ -365,7 +363,7 @@ def compute_values(x_str, y_str, op):
         code = 'EMPTY_INPUT' if str(e) == 'EMPTY_INPUT' else 'NAN_INPUT'
         return (code, code, False)
 
-    if op in ('pr', 'cr', 'fp_rise', 'fp_fall'):
+    if op in ('pr', 'cr', 'fp_fall'):
         try:
             y = parse_input(y_str)
         except Exception as e:
@@ -389,9 +387,6 @@ def compute_values(x_str, y_str, op):
         elif op == 'fp_fall':
             a = mp.ff(x, y)
             b = fib_fall(x, y)
-        elif op == 'fp_rise':
-            a = mp.rf(x, y)
-            b = fib_pr(x + y - 1, y)
         else:
             a = mp.mpf('inf'); b = mp.mpf('inf')
     except Exception:
@@ -444,7 +439,7 @@ async function compute(){
     outGamma.textContent = err; outHad.textContent = err;
     return;
   }
-  if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_fall') && sy === ''){
+  if((operation === 'pr' || operation === 'cr' || operation === 'fp_fall') && sy === ''){
     const err = 'Error: Incomplete expression';
     outGamma.textContent = err; outHad.textContent = err;
     return;
