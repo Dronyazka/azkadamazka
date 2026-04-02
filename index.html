@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" href="pseudogammacalc.ico" type="image/x-icon" />
-<title>Pseudogamma Function Calculator</title>
+<title>Fibonorial Calculator</title>
 <style>
 :root{
   --bg:#0f172a; --card:#0b1220; --box:rgba(255,255,255,.03);
@@ -40,7 +40,7 @@ input::placeholder{color:rgba(230,238,248,.45);}
 </head>
 <body>
 <div class="page">
-  <h1 class="page-title">Pseudogamma Function Calculator</h1>
+  <h1 class="page-title">Fibonorial Calculator</h1>
   <div class="op-row">
     <div class="op-card">
       <div id="opLabel" class="op-label">Combinatorics</div>
@@ -65,11 +65,8 @@ input::placeholder{color:rgba(230,238,248,.45);}
       <button id="compute" type="button">Compute</button>
     </div>
 
-    <div class="box"><div class="label">Euler gamma function</div><div id="outGamma" class="out">—</div></div>
-    <div class="box"><div class="label">Hadamard's gamma function</div><div id="outHad" class="out">—</div></div>
-    <div class="box"><div class="label">Luschny factorial</div><div id="outLus" class="out">—</div></div>
-    <div class="box"><div class="label">Klimek's K-function</div><div id="outKli" class="out">—</div></div>
-    <div class="box"><div class="label">Ulgenes' lambda function</div><div id="outUl" class="out">—</div></div>
+    <div class="box"><div class="label">Factorial</div><div id="outGamma" class="out">—</div></div>
+    <div class="box"><div class="label">Fibonorial</div><div id="outHad" class="out">—</div></div>
 
     <pre id="errorBox"></pre>
   </div>
@@ -90,9 +87,6 @@ const yinput = document.getElementById('yinput');
 const computeBtn = document.getElementById('compute');
 const outGamma = document.getElementById('outGamma');
 const outHad = document.getElementById('outHad');
-const outLus = document.getElementById('outLus');
-const outKli = document.getElementById('outKli');
-const outUl = document.getElementById('outUl');
 const errorBox = document.getElementById('errorBox');
 
 let operation = 'fact';
@@ -173,7 +167,7 @@ function toHyphenMinus(s){ return s.replace(/−/g, '-'); }
 
 
 const pythonComputeModule = `
-from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf, hyper
+from mpmath import mp, mpf, mpc, nstr, sin, pi, gamma, log, exp, binomial, ff, rf
 mp.dps = 256
 
 def _make_digamma():
@@ -372,112 +366,17 @@ def f_gamma(x):
     except Exception:
         return mp.mpf('inf')
 
-def hadamard_direct(X):
-    return (digamma(1 - X/2) - digamma((1 - X)/2)) / (2*mp.gamma(1 - X))
-
 def f_hadamard(x):
-    X = x + 1
-    if (not isinstance(X, mpc)) and is_exact_real_integer(X) and int(mp.re(X)) >= 0:
-        return symmetric_limit(hadamard_direct, X)
+    phi = (1 + mp.sqrt(5)) / 2
+    X = x
     try:
-        return hadamard_direct(X)
+        return (phi ** ((X * (X + 1)) / 2)) * mp.qgamma(-(phi ** -2), X + 1)
     except Exception:
         return mp.mpf('inf')
-
-def luschny_L(x):
-    g = mp.gamma(x + 1)
-    denom = mp.pi * x
-    sinc = mp.mpf(1) if denom == 0 else mp.sin(mp.pi * x) / denom
-    inner = (x / 2) * (digamma((x + 1) / 2) - digamma(x / 2)) - mp.mpf('1/2')
-    return g * (1 - sinc * inner)
-
-def f_luschny(x):
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x) and int(mp.re(x)) <= 0:
-        return symmetric_limit(luschny_L, x)
-    try:
-        return luschny_L(x)
-    except Exception:
-        return mp.mpf('inf')
-
-def klimek_for_argument(A):
-    term = mp.sin(2 * mp.pi * A) / (2 * mp.pi)
-    return mp.gamma(A) * (1 + term * digamma(A))
-
-def f_klimek(x):
-    A = x + 1
-    if not isinstance(A, mpc):
-        try:
-            return symmetric_limit(klimek_for_argument, A)
-        except Exception:
-            return mp.mpf('inf')
-    try:
-        return klimek_for_argument(A)
-    except Exception:
-        return mp.mpf('inf')
-
-_ul_cache = {}
-
-def _ul_key(x):
-    return mp.nstr(x, 40)
-
-def _ulgenes_product_value(x):
-    key = "product:" + _ul_key(x)
-    if key in _ul_cache:
-        return _ul_cache[key]
-
-    with mp.workdps(256):
-        term_floor = mp.power(10, -30)
-        max_n = 256
-        S = mp.mpf('0')
-
-        for n in range(1, max_n + 1):
-            k = mp.mpf(n)
-            try:
-                exponent = binomial(x + k - 1, x - k) * hyper([k - mp.mpf('0.5'), k + x, k - x], [2*k, k + mp.mpf('0.5')], 1)
-            except Exception:
-                _ul_cache[key] = mp.mpf('inf')
-                return _ul_cache[key]
-            term = exponent * mp.log(k)
-
-            if mp.isnan(term) or mp.isinf(term):
-                _ul_cache[key] = mp.mpf('inf')
-                return _ul_cache[key]
-
-            S = S + term
-
-            if n > 1 and abs(term) < term_floor:
-                break
-
-    try:
-        val = mp.exp(+S)
-    except Exception:
-        val = mp.mpf('inf')
-
-    if mp.isnan(val) or mp.isinf(val) or abs(val) > mp.mpf('1e300'):
-        _ul_cache[key] = mp.mpf('inf')
-    else:
-        _ul_cache[key] = val
-    return _ul_cache[key]
-
-def ulgenes_direct(x):
-    return _ulgenes_product_value(x)
-
-def ulgenes_for_input(x):
-    if (not isinstance(x, mpc)) and is_exact_real_integer(x):
-        n = int(mp.re(x))
-        if n > 0:
-            return mp.factorial(n)
-        if n < 0:
-            return 1 / mp.factorial(-n)
-
-    return ulgenes_direct(x)
 
 f_map = {
     'gamma': f_gamma,
-    'hadamard': f_hadamard,
-    'luschny': f_luschny,
-    'klimek': f_klimek,
-    'ulgenes': ulgenes_direct
+    'hadamard': f_hadamard
 }
 
 def _is_bad(v):
@@ -521,7 +420,7 @@ def compute_partial(x_str, y_str, op):
         x = parse_input(x_str)
     except Exception as e:
         code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, code, code, code, False)
+        return (code, code, False)
     x_eff = x
     op_eff = op
 
@@ -531,7 +430,7 @@ def compute_partial(x_str, y_str, op):
             x_eff = x + y_tmp - 1
         except Exception as e:
             code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, code, code, code, False)
+            return (code, code, False)
         op_eff = 'pr'
 
     is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
@@ -541,12 +440,12 @@ def compute_partial(x_str, y_str, op):
             y = parse_input(y_str)
         except Exception as e:
             code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, code, code, code, is_pos)
+            return (code, code, is_pos)
     else:
         y = None
 
     outputs = []
-    names = ['gamma','hadamard','luschny','klimek']
+    names = ['gamma','hadamard']
     for nm in names:
         f = f_map[nm]
         try:
@@ -588,68 +487,7 @@ def compute_partial(x_str, y_str, op):
         except Exception:
             val = mp.mpf('inf')
         outputs.append(fmt(val))
-    return tuple(outputs) + (bool(is_pos),)
-
-def compute_ulgenes(x_str, y_str, op):
-    mp.dps = 256
-    try:
-        x = parse_input(x_str)
-    except Exception as e:
-        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, False)
-    x_eff = x
-    op_eff = op
-
-    if op == 'pr_rise':
-        try:
-            y_tmp = parse_input(y_str)
-            x_eff = x + y_tmp - 1
-        except Exception as e:
-            code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-            return (code, False)
-        op_eff = 'pr'
-
-    is_pos = (not isinstance(x_eff, mpc)) and (mp.re(x_eff) > 0)
-
-    if op_eff == 'fact':
-        try:
-            val = ulgenes_for_input(x_eff)
-        except Exception:
-            val = mp.mpf('inf')
-        return (fmt(val), is_pos)
-
-    try:
-        y = parse_input(y_str)
-    except Exception as e:
-        code = "EMPTY_INPUT" if str(e) == "EMPTY_INPUT" else "NAN_INPUT"
-        return (code, is_pos)
-
-    try:
-        if op_eff == 'pr':
-            num = ulgenes_for_input(x_eff)
-            den = ulgenes_for_input(x_eff - y)
-            if mp.isinf(num) or mp.isnan(num):
-                val = mp.mpf('inf')
-            elif mp.isinf(den) or mp.isnan(den):
-                val = mp.mpf('0')
-            else:
-                val = num/den
-            return (fmt(val), is_pos)
-        elif op_eff == 'cr':
-            num = ulgenes_for_input(x_eff)
-            den1 = ulgenes_for_input(y)
-            den2 = ulgenes_for_input(x_eff - y)
-            if mp.isinf(num) or mp.isnan(num):
-                val = mp.mpf('inf')
-            elif mp.isinf(den1) or mp.isnan(den1) or mp.isinf(den2) or mp.isnan(den2):
-                val = mp.mpf('0')
-            else:
-                val = num/(den1*den2)
-            return (fmt(val), is_pos)
-    except Exception:
-        return ("ERROR", is_pos)
-
-    return ("ERROR", is_pos)`;
+    return tuple(outputs) + (bool(is_pos),)`;
 
 
 let pyodideReady = false;
@@ -680,13 +518,11 @@ yinput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') compute(); });
 
 async function compute(){
   errorBox.style.display = 'none';
-  outGamma.textContent = '…'; outHad.textContent = '…'; outLus.textContent = '…';
-  outKli.textContent = '…'; outUl.textContent = '…';
+  outGamma.textContent = '…'; outHad.textContent = '…';
 
   if(!pyodideReady){
     const msg = 'Error: Engine is not ready';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
-    outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg;
     return;
   }
 
@@ -695,14 +531,12 @@ async function compute(){
 
   if(sx === ''){
     const err = 'Error: Incomplete expression';
-    outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
-    outKli.textContent = err; outUl.textContent = err;
+    outGamma.textContent = err; outHad.textContent = err;
     return;
   }
   if((operation === 'pr' || operation === 'cr' || operation === 'fp_rise' || operation === 'fp_fall') && sy === ''){
     const err = 'Error: Incomplete expression';
-    outGamma.textContent = err; outHad.textContent = err; outLus.textContent = err;
-    outKli.textContent = err; outUl.textContent = err;
+    outGamma.textContent = err; outHad.textContent = err;
     return;
   }
 
@@ -715,10 +549,7 @@ async function compute(){
     pyodide.globals.set('op_in', opForCompute);
 
     const partial = await pyodide.runPythonAsync(`compute_partial(x_in, y_in if y_in is not None else '', op_in)`);
-    const ulres = await pyodide.runPythonAsync(`compute_ulgenes(x_in, y_in if y_in is not None else '', op_in)`);
-
-    const [gRaw, hRaw, lRaw, kRaw, isPosPartial] = partial;
-    const [uRaw, isPosU] = ulres;
+    const [gRaw, hRaw, isPosPartial] = partial;
 
     function mapOut(raw, isPos){
       if(raw === 'EMPTY_INPUT') return 'Error: Incomplete expression';
@@ -735,15 +566,11 @@ async function compute(){
 
     outGamma.textContent = mapOut(gRaw, isPosPartial);
     outHad.textContent = mapOut(hRaw, isPosPartial);
-    outLus.textContent = mapOut(lRaw, isPosPartial);
-    outKli.textContent = mapOut(kRaw, isPosPartial);
-    outUl.textContent = mapOut(uRaw, isPosU);
 
   } catch(err){
     console.error('Compute failed', err);
     const msg = 'Error: Computation failed';
-    outGamma.textContent = msg; outHad.textContent = msg; outLus.textContent = msg;
-    outKli.textContent = msg; outUl.textContent = msg;
+    outGamma.textContent = msg; outHad.textContent = msg;
   } finally {
     computeBtn.disabled = false;
     computeBtn.textContent = 'Compute';
